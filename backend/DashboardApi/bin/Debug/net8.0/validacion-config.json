@@ -1,0 +1,18 @@
+{
+  "columnas": [
+    { "nombre": "Estacion", "tipo": "string", "obligatorio": true },
+    { "nombre": "Tanque", "tipo": "string", "obligatorio": true },
+    { "nombre": "Fecha", "tipo": "date", "obligatorio": true },
+    { "nombre": "tipo_muestreo", "tipo": "string", "obligatorio": false },
+    { "nombre": "momento", "tipo": "string", "obligatorio": false },
+    { "nombre": "bsr(bact/ml)", "tipo": "decimal", "obligatorio": false, "min": 0 },
+    { "nombre": "bpa(bact/ml)", "tipo": "decimal", "obligatorio": false, "min": 0 },
+    { "nombre": "bht(bact/ml)", "tipo": "decimal", "obligatorio": false, "min": 0 },
+    { "nombre": "bant(bact/ml)", "tipo": "decimal", "obligatorio": false, "min": 0 },
+    { "nombre": "ph", "tipo": "decimal", "obligatorio": false, "min": 0, "max": 14 },
+    { "nombre": "temperatura", "tipo": "decimal", "obligatorio": false, "min": -10, "max": 150 },
+    { "nombre": "conductividad", "tipo": "decimal", "obligatorio": false, "min": 0 },
+    { "nombre": "sulfuros", "tipo": "decimal", "obligatorio": false, "min": 0 },
+    { "nombre": "calcio total", "tipo": "decimal", "obligatorio": false, "min": 0 }
+  ]
+}
