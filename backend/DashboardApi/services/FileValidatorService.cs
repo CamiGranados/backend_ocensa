@@ -41,11 +41,20 @@ namespace DashboardApi.Services
                 return resultado; // si faltan columnas obligatorias, no tiene sentido validar filas
             }
 
+            // Columnas configuradas como filtro: filas cuyo valor no esté en ValoresPermitidos
+            // se omiten en silencio (ej. Tanque solo acepta TQ55000, TK7311, TK7313).
+            var columnasFiltro = columnasConfig
+                .Where(c => c.Filtro && c.ValoresPermitidos != null && c.ValoresPermitidos.Any())
+                .ToList();
+
             // 2. Validar fila por fila, columna por columna
             for (int i = 0; i < filas.Count; i++)
             {
                 var fila = filas[i];
                 int numeroFilaExcel = i + 2; // +2 porque la fila 1 es encabezado y Excel empieza en 1
+
+                NormalizarGuionesComoVacio(fila);
+                NormalizarNumericosInvalidos(fila, columnasConfig);
 
                 // Filas sin ningún identificador clave (todas las columnas obligatorias vacías)
                 // no son datos reales -- se omiten en vez de reportarse como error.
@@ -53,6 +62,19 @@ namespace DashboardApi.Services
                     string.IsNullOrWhiteSpace(fila.GetValueOrDefault(col.Nombre)));
 
                 if (sinIdentificadores)
+                {
+                    resultado.FilasOmitidas++;
+                    continue;
+                }
+
+                bool filtrada = columnasFiltro.Any(col =>
+                {
+                    var valor = fila.GetValueOrDefault(col.Nombre);
+                    return !string.IsNullOrWhiteSpace(valor) &&
+                           !col.ValoresPermitidos!.Contains(valor, StringComparer.OrdinalIgnoreCase);
+                });
+
+                if (filtrada)
                 {
                     resultado.FilasOmitidas++;
                     continue;
@@ -70,10 +92,43 @@ namespace DashboardApi.Services
                         resultado.Errores.Add(error);
                     }
                 }
+
+                resultado.FilasValidas.Add(fila);
             }
 
             resultado.Valido = !resultado.Errores.Any();
             return resultado;
+        }
+
+        // Algunos archivos de origen usan "-" como marcador de "sin dato".
+        // Se normaliza a cadena vacía para que se trate igual que una celda realmente vacía
+        // (no como un valor numérico/fecha inválido).
+        private static void NormalizarGuionesComoVacio(Dictionary<string, string> fila)
+        {
+            foreach (var clave in fila.Keys.ToList())
+            {
+                if (fila[clave]?.Trim() == "-")
+                {
+                    fila[clave] = string.Empty;
+                }
+            }
+        }
+
+        // Texto no numérico en una columna decimal (ej. "N.D.", "Z", comentarios de laboratorio)
+        // se trata como celda vacía en vez de reportarse como error de formato.
+        private void NormalizarNumericosInvalidos(Dictionary<string, string> fila, List<ColumnaConfig> columnasConfig)
+        {
+            foreach (var col in columnasConfig)
+            {
+                if (col.Tipo != "decimal") continue;
+                if (!fila.TryGetValue(col.Nombre, out var valor)) continue;
+                if (string.IsNullOrWhiteSpace(valor)) continue;
+
+                if (!decimal.TryParse(valor, NumberStyles.Any, CulturaDatos, out _))
+                {
+                    fila[col.Nombre] = string.Empty;
+                }
+            }
         }
 
         private ErrorValidacionDto? ValidarCelda(string valor, ColumnaConfig config, int numeroFila)

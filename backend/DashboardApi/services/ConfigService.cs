@@ -16,6 +16,13 @@ namespace DashboardApi.Services
             var opciones = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             _config = JsonSerializer.Deserialize<ValidacionConfig>(jsonTexto, opciones)
                        ?? new ValidacionConfig();
+
+            // Strip (equivalente a .strip() de Python) para que el nombre de columna
+            // coincida con el encabezado del Excel aunque el JSON tenga espacios de más.
+            foreach (var columna in _config.Columnas)
+            {
+                columna.Nombre = columna.Nombre.Trim();
+            }
         }
 
         public List<ColumnaConfig> ObtenerColumnas() => _config.Columnas;

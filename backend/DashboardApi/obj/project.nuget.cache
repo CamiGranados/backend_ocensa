@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "i3asYEXUODY=",
+  "dgSpecHash": "w5KyyGMcBPw=",
   "success": true,
-  "projectFilePath": "D:\\IA_OCENSA\\dashnoard_ocensa\\backend\\DashboardApi\\DashboardApi.csproj",
+  "projectFilePath": "D:\\IA_OCENSA\\backend_ocensa\\backend\\DashboardApi\\DashboardApi.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Integridad\\.nuget\\packages\\closedxml\\0.105.0\\closedxml.0.105.0.nupkg.sha512",
     "C:\\Users\\Integridad\\.nuget\\packages\\closedxml.parser\\2.0.0\\closedxml.parser.2.0.0.nupkg.sha512",

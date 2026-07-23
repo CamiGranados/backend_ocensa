@@ -6,6 +6,17 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+const string AngularDevCorsPolicy = "AngularDev";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(AngularDevCorsPolicy, policy =>
+    {
+        policy.WithOrigins("http://localhost:4200")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
 builder.Services.AddSingleton<DashboardApi.Services.ConfigService>();
 builder.Services.AddScoped<DashboardApi.Services.FileReaderService>();
 builder.Services.AddScoped<DashboardApi.Services.FileValidatorService>();
@@ -19,6 +30,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors(AngularDevCorsPolicy);
 
 var summaries = new[]
 {

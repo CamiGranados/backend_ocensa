@@ -751,11 +751,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\IA_OCENSA\\dashnoard_ocensa\\backend\\DashboardApi\\DashboardApi.csproj",
+      "projectUniqueName": "D:\\IA_OCENSA\\backend_ocensa\\backend\\DashboardApi\\DashboardApi.csproj",
       "projectName": "DashboardApi",
-      "projectPath": "D:\\IA_OCENSA\\dashnoard_ocensa\\backend\\DashboardApi\\DashboardApi.csproj",
+      "projectPath": "D:\\IA_OCENSA\\backend_ocensa\\backend\\DashboardApi\\DashboardApi.csproj",
       "packagesPath": "C:\\Users\\Integridad\\.nuget\\packages\\",
-      "outputPath": "D:\\IA_OCENSA\\dashnoard_ocensa\\backend\\DashboardApi\\obj\\",
+      "outputPath": "D:\\IA_OCENSA\\backend_ocensa\\backend\\DashboardApi\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\Integridad\\AppData\\Roaming\\NuGet\\NuGet.Config"
