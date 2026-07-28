@@ -126,9 +126,13 @@ namespace DashboardApi.Controllers
                         FilasOmitidas = resultado.FilasOmitidas,
                     });
 
-                    foreach (var columna in encabezados)
+                    // foreach (var columna in encabezados)
+                    // {
+                    //     if (string.IsNullOrWhiteSpace(columna)) continue;   // descarta fantasmas
+                    //     if (!columnasUnion.Contains(columna)) columnasUnion.Add(columna);
+                    // }
+                    foreach (var columna in resultado.ColumnasFinales)
                     {
-                        if (string.IsNullOrWhiteSpace(columna)) continue;   // descarta fantasmas
                         if (!columnasUnion.Contains(columna)) columnasUnion.Add(columna);
                     }
 

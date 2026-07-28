@@ -21,11 +21,14 @@ namespace DashboardApi.Services
         {
             var columnasConfig = _configService.ObtenerColumnas();
             var resultado = new ResultadoValidacionDto
+            // resultado.ColumnasFinales = columnasConfig.Select(c => c.Nombre).ToList();
+
             {
                 TotalFilas = filas.Count
             };
 
             // 1. Verificar columnas obligatorias que falten en el Excel
+            resultado.ColumnasFinales = columnasConfig.Select(c => c.Nombre).ToList();
             var columnasObligatorias = columnasConfig.Where(c => c.Obligatorio).ToList();
             foreach (var col in columnasObligatorias)
             {
@@ -93,7 +96,13 @@ namespace DashboardApi.Services
                     }
                 }
 
-                resultado.FilasValidas.Add(fila);
+                // resultado.FilasValidas.Add(fila);
+                var filaLimpia = new Dictionary<string, string>();
+                foreach (var colConfig in columnasConfig)
+                {
+                    filaLimpia[colConfig.Nombre] = fila.GetValueOrDefault(colConfig.Nombre) ?? string.Empty;
+                }
+                resultado.FilasValidas.Add(filaLimpia);
             }
 
             resultado.Valido = !resultado.Errores.Any();

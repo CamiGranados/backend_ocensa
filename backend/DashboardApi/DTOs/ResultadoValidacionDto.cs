@@ -16,5 +16,6 @@ namespace DashboardApi.DTOs
         // Devolverla en /validar infla la respuesta a decenas de MB en archivos grandes y cuelga al cliente.
         [JsonIgnore]
         public List<Dictionary<string, string>> FilasValidas { get; set; } = new();
+        public List<string> ColumnasFinales { get; set; } = new();
     }
 }
