@@ -12,7 +12,7 @@
     { "nombre": "BPA_planct", "tipo": "decimal", "obligatorio": false, "min": 0 },
     { "nombre": "BHT_planct", "tipo": "decimal", "obligatorio": false, "min": 0 },
     { "nombre": "BAnT_planct", "tipo": "decimal", "obligatorio": false, "min": 0 },
-    { "nombre": "origen", "tipo": "string", "obligatorio": false },
+    { "nombre": "origen", "tipo": "string", "obligatorio": true },
     { "nombre": "%biocida", "tipo": "decimal", "obligatorio": false, "min": 0 },
     { "nombre": "THPS", "tipo": "decimal", "obligatorio": false, "min": 0 },
     { "nombre": "Punto Muestreo", "tipo": "string", "obligatorio": false },
