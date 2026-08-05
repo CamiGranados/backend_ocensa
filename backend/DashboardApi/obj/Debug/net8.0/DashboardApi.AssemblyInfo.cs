@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("DashboardApi")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4aff5c658eee6ae6c53b0ed9b7d5167b1accd6c8")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2623a3d9541690c986f6425069a5f9976bb8911f")]
 [assembly: System.Reflection.AssemblyProductAttribute("DashboardApi")]
 [assembly: System.Reflection.AssemblyTitleAttribute("DashboardApi")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

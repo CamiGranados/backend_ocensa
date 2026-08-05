@@ -166,7 +166,15 @@ namespace DashboardApi.Controllers
                     .Where(c => !identificadores.Contains(c.Nombre))
                     .ToList();
 
+                var years = new HashSet<int>();
+
                 // 4. Recorrer filas y despivotar
+                // ← NUEVO: se guarda en lotes (en vez de todo en un solo SaveChanges) para
+                // evitar transacciones gigantes que agotan el CommandTimeout con archivos grandes.
+                const int tamanoLote = 5000;
+                var pendientes = 0;
+                _db.ChangeTracker.AutoDetectChangesEnabled = false;
+
                 foreach (var fila in filasCombinadas)
                 {
                     var tankId = fila.GetValueOrDefault("Tanque") ?? string.Empty;
@@ -174,13 +182,22 @@ namespace DashboardApi.Controllers
                     var origen = fila.GetValueOrDefault("origen");
                     var nombreCompania = string.IsNullOrWhiteSpace(origen) ? "Sin origen" : origen.Trim();
 
-                    DateTime.TryParse(fila.GetValueOrDefault("Fecha"), CulturaDatos, DateTimeStyles.None, out var fecha);
+                    // DateTime.TryParse(fila.GetValueOrDefault("Fecha"), CulturaDatos, DateTimeStyles.None, out var fecha);
+                    var validDate = DateTime.TryParse(fila.GetValueOrDefault("Fecha"), CulturaDatos, DateTimeStyles.None, out var fecha);
+                    if (validDate)
+                    {
+                        years.Add(fecha.Year);
+                    }
 
                     // Reutilizar o crear Company
                     if (!companias.TryGetValue(nombreCompania, out var companyId))
                     {
                         var nueva = new Company { Name = nombreCompania };
                         _db.Companies.Add(nueva);
+                        upload.DateRanges = System.Text.Json.JsonSerializer.Serialize(years.OrderBy(a => a));
+                        // ← con AutoDetectChangesEnabled = false hay que marcar el cambio a mano
+                        _db.Entry(upload).Property(u => u.DateRanges).IsModified = true;
+
                         await _db.SaveChangesAsync();      // para obtener su Id
                         companyId = nueva.Id;
                         companias[nombreCompania] = companyId;
@@ -219,10 +236,19 @@ namespace DashboardApi.Controllers
                         }
 
                         _db.Measurements.Add(medicion);
+                        pendientes++;
+
+                        if (pendientes >= tamanoLote)
+                        {
+                            await _db.SaveChangesAsync();
+                            _db.ChangeTracker.Clear();   // libera las entidades ya guardadas (no hay navegaciones que perder)
+                            pendientes = 0;
+                        }
                     }
                 }
 
-                await _db.SaveChangesAsync();   // guarda todas las mediciones de golpe
+                await _db.SaveChangesAsync();   // guarda el remanente que no completó un lote
+                _db.ChangeTracker.AutoDetectChangesEnabled = true;
 
                 return Ok(new
                 {

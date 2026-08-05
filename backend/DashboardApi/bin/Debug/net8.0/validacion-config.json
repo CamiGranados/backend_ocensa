@@ -12,9 +12,11 @@
     { "nombre": "BPA_planct", "tipo": "decimal", "obligatorio": false, "min": 0 },
     { "nombre": "BHT_planct", "tipo": "decimal", "obligatorio": false, "min": 0 },
     { "nombre": "BAnT_planct", "tipo": "decimal", "obligatorio": false, "min": 0 },
+    { "nombre": "Vel. Corrosión Generalizada_cupon", "tipo": "decimal", "obligatorio": false, "min": 0 },
+    { "nombre": "Vel. Picadura Máxima_biocupon", "tipo": "decimal", "obligatorio": false, "min": 0 },
     { "nombre": "origen", "tipo": "string", "obligatorio": true },
     { "nombre": "%biocida", "tipo": "decimal", "obligatorio": false, "min": 0 },
-    { "nombre": "THPS", "tipo": "decimal", "obligatorio": false, "min": 0 },
+    { "nombre": "THPS_%", "tipo": "decimal", "obligatorio": false, "min": 0 },
     { "nombre": "Punto Muestreo", "tipo": "string", "obligatorio": false },
     { "nombre": "Fecha inyección", "tipo": "date", "obligatorio": false },
     { "nombre": "Residual THPS", "tipo": "decimal", "obligatorio": false, "min": 0 },
@@ -27,6 +29,8 @@
     { "nombre": "BSW (%)", "tipo": "decimal", "obligatorio": false, "min": 0 },
     { "nombre": "Dosis programada", "tipo": "decimal", "obligatorio": false, "min": 0 },
     { "nombre": "Volumen programado", "tipo": "decimal", "obligatorio": false, "min": 0 },
+    { "nombre": "Volumen real", "tipo": "decimal", "obligatorio": false, "min": 0 },
+    { "nombre": "FWV incrementada", "tipo": "decimal", "obligatorio": false},
     { "nombre": "Dosis real inyectada", "tipo": "decimal", "obligatorio": false, "min": 0 },
     { "nombre": "Tipo_Muestreo_norm", "tipo": "string", "obligatorio": false }
   ]

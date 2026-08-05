@@ -23,7 +23,9 @@ builder.Services.AddCors(options =>
 builder.Services.AddSingleton<DashboardApi.Services.ConfigService>();
 builder.Services.AddScoped<DashboardApi.Services.FileReaderService>();
 builder.Services.AddScoped<DashboardApi.Services.FileValidatorService>();
-builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(
+    builder.Configuration.GetConnectionString("DefaultConnection"),
+    sql => sql.CommandTimeout(180)));
 
 var app = builder.Build();
 

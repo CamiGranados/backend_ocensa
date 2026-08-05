@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using DashboardApi.Data;
 using DashboardApi.Models;
 using Microsoft.EntityFrameworkCore;
-
+using System.Text.Json;
 [ApiController]
 [Route("api/[controller]")]
 public class TanksController : ControllerBase
@@ -26,11 +26,18 @@ public class TanksController : ControllerBase
     [HttpGet("years")]
     public async Task<ActionResult<IEnumerable<int>>> GetYears()
     {
-        var years = await _context.Measurements
-            .Select(t => t.Date.Year)   // EF lo traduce a DATEPART(year, Date)
-            .Distinct()                 // años únicos
-            .OrderBy(y => y)            // ordenados ascendente
+        // 1. Traer solo los JSON de años (tabla pequeña, consulta barata)
+        var rangosJson = await _context.Uploads
+            .Where(u => u.DateRanges != null)
+            .Select(u => u.DateRanges!)
             .ToListAsync();
+
+        // 2. Desarmar cada JSON y unir todos los años sin duplicados
+        var years = rangosJson
+            .SelectMany(json => JsonSerializer.Deserialize<List<int>>(json) ?? new List<int>())
+            .Distinct()
+            .OrderBy(y => y)
+            .ToList();
 
         return Ok(years);
     }
@@ -38,7 +45,7 @@ public class TanksController : ControllerBase
     [HttpGet("fwv")]
     public async Task<ActionResult> GetMeasurements(
         [FromQuery] string tankId,
-        [FromQuery] int year,
+        [FromQuery] int[]? years = null,
         [FromQuery] int[]? months = null)
     {
         // las variables que nos interesan (deben coincidir EXACTO con la BD)
@@ -47,15 +54,19 @@ public class TanksController : ControllerBase
             "FWV estimada",
             "FWV reportada",
             "FWV calculada",
-            "Dosis programada",
-            "Dosis real inyectada"
-            };
+            "FWV incrementada",
+            "gsv(bls)"
+        };
 
         var query = _context.Measurements
             .Where(m => m.TankId == tankId)
-            .Where(m => m.Date.Year == year)
             .Where(m => variables.Contains(m.Variable));
 
+        // años: si no mandan ninguno, trae todos (no filtra)
+        if (years != null && years.Length > 0)
+        {
+            query = query.Where(m => years.Contains(m.Date.Year));
+        }
         // meses: si no mandan ninguno, trae todos (no filtra)
         if (months != null && months.Length > 0)
         {

@@ -7,5 +7,6 @@ namespace DashboardApi.Models
         public string FileName { get; set; } = string.Empty;
         public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
         public int TotalRows { get; set; }
+        public string? DateRanges { get; set; }
     }
 }
