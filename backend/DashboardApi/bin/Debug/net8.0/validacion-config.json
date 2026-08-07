@@ -32,6 +32,8 @@
     { "nombre": "Volumen real", "tipo": "decimal", "obligatorio": false, "min": 0 },
     { "nombre": "FWV incrementada", "tipo": "decimal", "obligatorio": false},
     { "nombre": "Dosis real inyectada", "tipo": "decimal", "obligatorio": false, "min": 0 },
-    { "nombre": "Tipo_Muestreo_norm", "tipo": "string", "obligatorio": false }
+    { "nombre": "Tipo_Muestreo_norm", "tipo": "string", "obligatorio": false },
+    { "nombre": "Categoría [NACE SP0775-23]_biocupon", "tipo": "string", "obligatorio": false },
+    { "nombre": "Alarma_ivel", "tipo": "string", "obligatorio": false }
   ]
 }
