@@ -17,19 +17,15 @@ namespace DashboardApi.Controllers
 
         private readonly FileReaderService _fileReaderService;
         private readonly FileValidatorService _validadorService;
-        private readonly ConfigService _configService;   // ← NUEVO
         private readonly AppDbContext _db;                // ← NUEVO
 
-        // ← NUEVO: constructor con ConfigService y AppDbContext agregados
         public LoadFileController(
             FileReaderService fileReaderService,
             FileValidatorService validadorService,
-            ConfigService configService,
             AppDbContext db)
         {
             _fileReaderService = fileReaderService;
             _validadorService = validadorService;
-            _configService = configService;
             _db = db;
         }
 
@@ -151,24 +147,17 @@ namespace DashboardApi.Controllers
                     LoteId = Guid.NewGuid(),
                     FileName = string.Join(", ", archivos.Select(a => a.FileName)),
                     UploadedAt = DateTime.UtcNow,
-                    TotalRows = filasCombinadas.Count
                 };
                 _db.Uploads.Add(upload);
                 await _db.SaveChangesAsync();   // para obtener upload.Id
 
                 // 2. Caches para reutilizar compañías y tanques (evita duplicados)
                 var companias = await _db.Companies.ToDictionaryAsync(c => c.Name, c => c.Id);
-                var tanques = (await _db.Tanks.Select(t => t.Id).ToListAsync()).ToHashSet();
-
-                // 3. Columnas que se despivotan: todo menos los identificadores
-                var identificadores = new HashSet<string> { "Tanque", "Fecha", "origen" };
-                var columnasVariables = _configService.ObtenerColumnas()
-                    .Where(c => !identificadores.Contains(c.Nombre))
-                    .ToList();
+                var tanques = await _db.Tanks.ToDictionaryAsync(t => t.Name, t => t.Id);
 
                 var years = new HashSet<int>();
 
-                // 4. Recorrer filas y despivotar
+                // 3. Recorrer filas: una fila = un Measurement (más un PhysicalChemistry si trae datos fisicoquímicos)
                 // ← NUEVO: se guarda en lotes (en vez de todo en un solo SaveChanges) para
                 // evitar transacciones gigantes que agotan el CommandTimeout con archivos grandes.
                 const int tamanoLote = 5000;
@@ -177,12 +166,11 @@ namespace DashboardApi.Controllers
 
                 foreach (var fila in filasCombinadas)
                 {
-                    var tankId = fila.GetValueOrDefault("Tanque") ?? string.Empty;
+                    var tankCode = fila.GetValueOrDefault("Tanque") ?? string.Empty;
 
                     var origen = fila.GetValueOrDefault("origen");
                     var nombreCompania = string.IsNullOrWhiteSpace(origen) ? "Sin origen" : origen.Trim();
 
-                    // DateTime.TryParse(fila.GetValueOrDefault("Fecha"), CulturaDatos, DateTimeStyles.None, out var fecha);
                     var validDate = DateTime.TryParse(fila.GetValueOrDefault("Fecha"), CulturaDatos, DateTimeStyles.None, out var fecha);
                     if (validDate)
                     {
@@ -203,47 +191,88 @@ namespace DashboardApi.Controllers
                         companias[nombreCompania] = companyId;
                     }
 
-                    // Reutilizar o crear Tank
-                    if (!string.IsNullOrWhiteSpace(tankId) && !tanques.Contains(tankId))
+                    // Reutilizar o crear Tank ("Tanque" es obligatorio, ya validado antes de llegar aquí)
+                    if (!tanques.TryGetValue(tankCode, out var tankId))
                     {
-                        _db.Tanks.Add(new Tank { Id = tankId, Name = tankId });
-                        tanques.Add(tankId);
+                        var nuevoTanque = new Tank { Name = tankCode };
+                        _db.Tanks.Add(nuevoTanque);
+                        await _db.SaveChangesAsync();      // para obtener su Id
+                        tankId = nuevoTanque.Id;
+                        tanques[tankCode] = tankId;
                     }
 
-                    // Un Measurement por cada columna de variable
-                    foreach (var col in columnasVariables)
+                    decimal? Dec(string columna) =>
+                        decimal.TryParse(fila.GetValueOrDefault(columna), NumberStyles.Any, CulturaDatos, out var numero) ? numero : null;
+
+                    DateTime? Fec(string columna) =>
+                        DateTime.TryParse(fila.GetValueOrDefault(columna), CulturaDatos, DateTimeStyles.None, out var valorFecha) ? valorFecha : null;
+
+                    string Str(string columna) => fila.GetValueOrDefault(columna) ?? string.Empty;
+
+                    var medicion = new Measurement
                     {
-                        var valor = fila.GetValueOrDefault(col.Nombre);
-                        if (string.IsNullOrWhiteSpace(valor)) continue;   // salta celdas vacías
+                        CompanyId = companyId,
+                        TankId = tankId,
+                        Date = fecha,
+                        BSR_planct = Dec("BSR_planct"),
+                        BPA_planct = Dec("BPA_planct"),
+                        BHT_planct = Dec("BHT_planct"),
+                        BAnT_planct = Dec("BAnT_planct"),
+                        Biocida_percent = Dec("%biocida"),
+                        THPS_percent = Dec("THPS_%"),
+                        Sampling_Point = Str("Punto Muestreo"),
+                        Injection_date = Fec("Fecha inyección"),
+                        Residual_THPS = Dec("Residual THPS"),
+                        Last_Biocida_Injection = Dec("ultima inyeccion biocida"),
+                        GSV_bls = Dec("gsv(bls)"),
+                        Estimated_FWV = Dec("FWV estimada"),
+                        Reported_FWV = Dec("FWV reportada"),
+                        Calculated_FWV = Dec("FWV calculada"),
+                        Increased_FWV = Dec("FWV incrementada"),
+                        API = Dec("API"),
+                        Scheduled_Dose = Dec("Dosis programada"),
+                        Actual_Injected_Dose = Dec("Dosis real inyectada"),
+                        Programmed_volume = Dec("Volumen programado"),
+                        Actual_volume = Dec("Volumen real"),
+                        Standard_Sampling_Type = Str("Tipo_Muestreo_norm"),
+                        Category_Nace = Str("Categoría [NACE SP0775-23]_biocupon"),
+                        Level_Alarm = Str("Alarma_ivel"),
+                        UploadId = upload.Id
+                    };
+                    _db.Measurements.Add(medicion);
+                    pendientes++;
 
-                        var medicion = new Measurement
-                        {
-                            CompanyId = companyId,
-                            TankId = tankId,
-                            Date = fecha,
-                            Variable = col.Nombre,
-                            UploadId = upload.Id
-                        };
+                    var fisicoquimico = new PhysicalChemistry
+                    {
+                        Measurement = medicion,
+                        Temperature_C = Dec("Temperatura [°C]"),
+                        H2S_mgL = Dec("H2S [mg/L]"),
+                        pH = Dec("pH"),
+                        Conductivity_uScm = Dec("Conductividad [µS/cm]"),
+                        Alkalinity_mgL = Dec("Alcalinidad [mg/L (CaCO3)]"),
+                        calcium_mgL = Dec("Calcio [mg/L]"),
+                        BSW_percent = Dec("BSW (%)"),
+                        General_Corrosion_Rate_ppm = Dec("Vel. Corrosión Generalizada_cupon"),
+                        Maximum_Sting_Speed_ppm = Dec("Vel. Picadura Máxima_biocupon"),
+                    };
 
-                        if (col.Tipo == "decimal" &&
-                            decimal.TryParse(valor, NumberStyles.Any, CulturaDatos, out var numero))
-                        {
-                            medicion.NumericValue = numero;
-                        }
-                        else
-                        {
-                            medicion.TextValue = valor;    // string y date se guardan como texto
-                        }
+                    // solo se guarda el registro fisicoquímico si la fila realmente trae algún dato
+                    var tieneDatosFisicoquimicos =
+                        fisicoquimico.Temperature_C != null || fisicoquimico.H2S_mgL != null || fisicoquimico.pH != null ||
+                        fisicoquimico.Conductivity_uScm != null || fisicoquimico.Alkalinity_mgL != null || fisicoquimico.calcium_mgL != null ||
+                        fisicoquimico.BSW_percent != null || fisicoquimico.General_Corrosion_Rate_ppm != null || fisicoquimico.Maximum_Sting_Speed_ppm != null;
 
-                        _db.Measurements.Add(medicion);
+                    if (tieneDatosFisicoquimicos)
+                    {
+                        _db.PhysicalChemistries.Add(fisicoquimico);
                         pendientes++;
+                    }
 
-                        if (pendientes >= tamanoLote)
-                        {
-                            await _db.SaveChangesAsync();
-                            _db.ChangeTracker.Clear();   // libera las entidades ya guardadas (no hay navegaciones que perder)
-                            pendientes = 0;
-                        }
+                    if (pendientes >= tamanoLote)
+                    {
+                        await _db.SaveChangesAsync();
+                        _db.ChangeTracker.Clear();   // libera las entidades ya guardadas (no hay navegaciones que perder)
+                        pendientes = 0;
                     }
                 }
 

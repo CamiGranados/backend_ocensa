@@ -45,23 +45,17 @@ public class TanksController : ControllerBase
 
     [HttpGet("fwv")]
     public async Task<ActionResult> GetMeasurements(
-        [FromQuery] string tankId,
+        [FromQuery] long tankId,
         [FromQuery] int[]? years = null,
         [FromQuery] int[]? months = null)
     {
-        // las variables que nos interesan (deben coincidir EXACTO con la BD)
-        var variables = new[]
+        var tank = await _context.Tanks.FirstOrDefaultAsync(t => t.Id == tankId);
+        if (tank == null)
         {
-            "FWV estimada",
-            "FWV reportada",
-            "FWV calculada",
-            "FWV incrementada",
-            "gsv(bls)"
-        };
+            return Ok(Array.Empty<object>());
+        }
 
-        var query = _context.Measurements
-            .Where(m => m.TankId == tankId)
-            .Where(m => variables.Contains(m.Variable));
+        var query = _context.Measurements.Where(m => m.TankId == tank.Id);
 
         // años: si no mandan ninguno, trae todos (no filtra)
         if (years != null && years.Length > 0)
@@ -74,15 +68,29 @@ public class TanksController : ControllerBase
             query = query.Where(m => months.Contains(m.Date.Month));
         }
 
-        var result = await query
+        var filas = await query
+            .OrderBy(m => m.Date)
             .Select(m => new
             {
-                m.Variable,
-                m.NumericValue,
-                m.Date
+                m.Date,
+                m.Estimated_FWV,
+                m.Reported_FWV,
+                m.Calculated_FWV,
+                m.Increased_FWV,
+                m.GSV_bls
             })
-            .OrderBy(m => m.Date)
             .ToListAsync();
+
+        // se despivota de vuelta a (variable, valor, fecha) para mantener el mismo contrato que consume el frontend
+        var result = new List<object>();
+        foreach (var fila in filas)
+        {
+            if (fila.Estimated_FWV != null) result.Add(new { Variable = "FWV estimada", NumericValue = fila.Estimated_FWV, fila.Date });
+            if (fila.Reported_FWV != null) result.Add(new { Variable = "FWV reportada", NumericValue = fila.Reported_FWV, fila.Date });
+            if (fila.Calculated_FWV != null) result.Add(new { Variable = "FWV calculada", NumericValue = fila.Calculated_FWV, fila.Date });
+            if (fila.Increased_FWV != null) result.Add(new { Variable = "FWV incrementada", NumericValue = fila.Increased_FWV, fila.Date });
+            if (fila.GSV_bls != null) result.Add(new { Variable = "gsv(bls)", NumericValue = fila.GSV_bls, fila.Date });
+        }
 
         return Ok(result);
     }

@@ -1,4 +1,5 @@
 using DashboardApi.Data;
+using DashboardApi.Models;
 using Microsoft.EntityFrameworkCore;
 
 // Interface
@@ -10,13 +11,6 @@ public interface IAnalysisService
 // Implementation
 public class AnalysisService : IAnalysisService
 {
-    // Variable names as stored in Measurements.Variable (deben coincidir EXACTO con la BD / validacion-config.json)
-    private const string VarThpsPercent = "THPS_%";
-    private const string VarTipoMuestreo = "Tipo_Muestreo_norm";
-    private const string VarBsrPlanct = "BSR_planct";
-    private const string VarNaceCategory = "Categoría [NACE SP0775-23]_biocupon";
-    private const string VarAlarmaNivel = "Alarma_ivel";
-
     private const decimal BsrControlThreshold = 100m; // 10^2
 
     private readonly AppDbContext _context;
@@ -28,20 +22,32 @@ public class AnalysisService : IAnalysisService
 
     public async Task<AnalysisCalculationResponse> CalculateAllMetrics(string tankId, int[] years)
     {
+        var tank = await _context.Tanks.FirstOrDefaultAsync(t => t.Name == tankId);
+        if (tank == null)
+        {
+            return new AnalysisCalculationResponse
+            {
+                MedianRetention = new MedianRetentionDto { Percentage = 0, TotalRecords = 0 },
+                MicrobiologicalEvents = new MicrobiologicalEventsDto { Percentage = 0, InControlEvents = 0, TotalEventsWithData = 0 },
+                NaceCategory = new NaceCategoryDto { TqCode = tankId },
+                SentinelIndex = new SentinelIndexDto { TqCode = tankId },
+                CalculationDate = DateTime.UtcNow
+            };
+        }
+
         return new AnalysisCalculationResponse
         {
-            MedianRetention = await CalculateMedianRetention(tankId, years),
-            MicrobiologicalEvents = await CalculateMicrobiologicalEvents(tankId, years),
-            NaceCategory = await CalculateNaceCategory(tankId, years),
-            SentinelIndex = await CalculateSentinelIndex(tankId, years),
+            MedianRetention = await CalculateMedianRetention(tank.Id, years),
+            MicrobiologicalEvents = await CalculateMicrobiologicalEvents(tank.Id, years),
+            NaceCategory = await CalculateNaceCategory(tank.Id, years, tankId),
+            SentinelIndex = await CalculateSentinelIndex(tank.Id, years, tankId),
             CalculationDate = DateTime.UtcNow
         };
     }
 
-    private IQueryable<DashboardApi.Models.Measurement> QueryVariable(string tankId, int[] years, string variable)
+    private IQueryable<Measurement> QueryTank(long tankId, int[] years)
     {
-        var query = _context.Measurements
-            .Where(m => m.TankId == tankId && m.Variable == variable);
+        var query = _context.Measurements.Where(m => m.TankId == tankId);
 
         if (years != null && years.Length > 0)
         {
@@ -51,12 +57,12 @@ public class AnalysisService : IAnalysisService
         return query;
     }
 
-    // Retención mediana de THPS: mediana de la variable "THPS_%"
-    private async Task<MedianRetentionDto> CalculateMedianRetention(string tankId, int[] years)
+    // Retención mediana de THPS: mediana de Measurement.THPS_percent
+    private async Task<MedianRetentionDto> CalculateMedianRetention(long tankId, int[] years)
     {
-        var values = await QueryVariable(tankId, years, VarThpsPercent)
-            .Where(m => m.NumericValue != null)
-            .Select(m => m.NumericValue!.Value)
+        var values = await QueryTank(tankId, years)
+            .Where(m => m.THPS_percent != null)
+            .Select(m => m.THPS_percent!.Value)
             .ToListAsync();
 
         return new MedianRetentionDto
@@ -67,24 +73,24 @@ public class AnalysisService : IAnalysisService
         };
     }
 
-    // Eventos microbiológicos en control: eventos = registros con Tipo_Muestreo_norm conteniendo "antes";
+    // Eventos microbiológicos en control: eventos = registros con Standard_Sampling_Type conteniendo "antes";
     // un evento está "en control" cuando su BSR_planct (misma compañía y fecha) es menor a 10^2.
-    private async Task<MicrobiologicalEventsDto> CalculateMicrobiologicalEvents(string tankId, int[] years)
+    private async Task<MicrobiologicalEventsDto> CalculateMicrobiologicalEvents(long tankId, int[] years)
     {
-        var eventKeys = await QueryVariable(tankId, years, VarTipoMuestreo)
-            .Where(m => m.TextValue != null && m.TextValue.ToUpper().Contains("ANTES"))
+        var eventKeys = await QueryTank(tankId, years)
+            .Where(m => m.Standard_Sampling_Type != "" && m.Standard_Sampling_Type.ToUpper().Contains("ANTES"))
             .Select(m => new { m.CompanyId, m.Date })
             .Distinct()
             .ToListAsync();
 
-        var bsrValues = await QueryVariable(tankId, years, VarBsrPlanct)
-            .Where(m => m.NumericValue != null)
-            .Select(m => new { m.CompanyId, m.Date, m.NumericValue })
+        var bsrValues = await QueryTank(tankId, years)
+            .Where(m => m.BSR_planct != null)
+            .Select(m => new { m.CompanyId, m.Date, m.BSR_planct })
             .ToListAsync();
 
         var bsrByKey = bsrValues
             .GroupBy(b => (b.CompanyId, b.Date))
-            .ToDictionary(g => g.Key, g => g.First().NumericValue!.Value);
+            .ToDictionary(g => g.Key, g => g.First().BSR_planct!.Value);
 
         var totalWithData = 0;
         var inControl = 0;
@@ -109,32 +115,34 @@ public class AnalysisService : IAnalysisService
         };
     }
 
-    // Última categoría NACE: valor más reciente de "Categoría [NACE SP0775-23]_biocupon"
-    private async Task<NaceCategoryDto> CalculateNaceCategory(string tankId, int[] years)
+    // Última categoría NACE: valor más reciente de Measurement.Category_Nace
+    private async Task<NaceCategoryDto> CalculateNaceCategory(long tankId, int[] years, string tqCode)
     {
-        var last = await QueryVariable(tankId, years, VarNaceCategory)
+        var last = await QueryTank(tankId, years)
+            .Where(m => m.Category_Nace != "")
             .OrderByDescending(m => m.Date)
             .FirstOrDefaultAsync();
 
         return new NaceCategoryDto
         {
-            Category = last?.TextValue ?? "Sin datos",
-            TqCode = tankId,
+            Category = last?.Category_Nace is { Length: > 0 } categoria ? categoria : "Sin datos",
+            TqCode = tqCode,
             LastDate = last?.Date
         };
     }
 
-    // Índice centinela más reciente: valor más reciente de "Alarma_ivel"
-    private async Task<SentinelIndexDto> CalculateSentinelIndex(string tankId, int[] years)
+    // Índice centinela más reciente: valor más reciente de Measurement.Level_Alarm
+    private async Task<SentinelIndexDto> CalculateSentinelIndex(long tankId, int[] years, string tqCode)
     {
-        var last = await QueryVariable(tankId, years, VarAlarmaNivel)
+        var last = await QueryTank(tankId, years)
+            .Where(m => m.Level_Alarm != "")
             .OrderByDescending(m => m.Date)
             .FirstOrDefaultAsync();
 
         return new SentinelIndexDto
         {
-            Level = last?.TextValue ?? "Sin datos",
-            TqCode = tankId,
+            Level = last?.Level_Alarm is { Length: > 0 } nivel ? nivel : "Sin datos",
+            TqCode = tqCode,
             CalculationDate = last?.Date
         };
     }
