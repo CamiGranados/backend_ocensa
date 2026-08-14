@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using DashboardApi.Data;
 using DashboardApi.Models;
+using DashboardApi.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
@@ -93,5 +94,14 @@ public class TanksController : ControllerBase
         }
 
         return Ok(result);
+    }
+
+    // POST: api/tanks/summary
+    [HttpPost("summary")]
+    public async Task<ActionResult<DashboardApi.DTOs.MeasurementFiltersResponseDto>> GetSummary([FromBody] MeasurementsSummaryRequest request)
+    {
+        var service = new OverviewService(_context);
+        var summary = await service.GetSummaryAsync(request);
+        return Ok(summary);
     }
 }
