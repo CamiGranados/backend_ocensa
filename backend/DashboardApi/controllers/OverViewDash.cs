@@ -10,10 +10,12 @@ using System.Text.Json;
 public class TanksController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly IThpsReviewService _thpsReviewService;
 
-    public TanksController(AppDbContext context)
+    public TanksController(AppDbContext context, IThpsReviewService thpsReviewService)
     {
         _context = context;
+        _thpsReviewService = thpsReviewService;
     }
 
     // GET: api/tanks
@@ -103,5 +105,15 @@ public class TanksController : ControllerBase
         var service = new OverviewService(_context);
         var summary = await service.GetSummaryAsync(request);
         return Ok(summary);
+    }
+
+    // GET: api/tanks/thps-review
+    [HttpGet("thps-review")]
+    public async Task<ActionResult<DashboardApi.DTOs.ThpsReviewResponseDto>> GetThpsReview(
+        [FromQuery] DashboardApi.DTOs.ThpsReviewRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _thpsReviewService.GetThpsReviewAsync(request, cancellationToken);
+        return Ok(result);
     }
 }

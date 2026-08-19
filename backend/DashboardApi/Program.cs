@@ -25,6 +25,7 @@ builder.Services.AddScoped<DashboardApi.Services.FileReaderService>();
 builder.Services.AddScoped<DashboardApi.Services.FileValidatorService>();
 builder.Services.AddScoped<IAnalysisService, AnalysisService>();
 builder.Services.AddScoped<DashboardApi.Services.OverviewService>();
+builder.Services.AddScoped<DashboardApi.Services.IThpsReviewService, DashboardApi.Services.ThpsReviewService>();
 builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(
     builder.Configuration.GetConnectionString("DefaultConnection"),
     sql => sql.CommandTimeout(180)));
