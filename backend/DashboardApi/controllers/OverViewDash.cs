@@ -11,11 +11,13 @@ public class TanksController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly IThpsReviewService _thpsReviewService;
+    private readonly IMicroService _microService;
 
-    public TanksController(AppDbContext context, IThpsReviewService thpsReviewService)
+    public TanksController(AppDbContext context, IThpsReviewService thpsReviewService, IMicroService microService)
     {
         _context = context;
         _thpsReviewService = thpsReviewService;
+        _microService = microService;
     }
 
     // GET: api/tanks
@@ -114,6 +116,16 @@ public class TanksController : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await _thpsReviewService.GetThpsReviewAsync(request, cancellationToken);
+        return Ok(result);
+    }
+
+    // POST: api/tanks/micro
+    [HttpPost("mic")]
+    public async Task<ActionResult<DashboardApi.DTOs.MicroResponseDto>> GetMicro(
+        [FromBody] DashboardApi.DTOs.MicroRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _microService.GetMicroAsync(request, cancellationToken);
         return Ok(result);
     }
 }
