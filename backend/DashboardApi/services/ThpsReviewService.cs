@@ -22,15 +22,12 @@ public class ThpsReviewService : IThpsReviewService
 
     public async Task<ThpsReviewResponseDto> GetThpsReviewAsync(ThpsReviewRequestDto request, CancellationToken cancellationToken)
     {
-        var page = request.Page;
-        var pageSize = request.PageSize;
-
         var tankExists = await _context.Tanks
             .AsNoTracking()
             .AnyAsync(t => t.Id == request.TankId, cancellationToken);
 
         if (!tankExists)
-            return ThpsReviewResponseDto.Empty(page, pageSize);
+            return ThpsReviewResponseDto.Empty;
 
         var query = _context.Measurements
             .AsNoTracking()
@@ -80,14 +77,15 @@ public class ThpsReviewService : IThpsReviewService
         var items = await query
             .OrderByDescending(m => m.Date)
             .ThenByDescending(m => m.Id)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
             .Select(m => new ThpsReviewRecordDto
             {
                 Date = m.Date,
-                ActualInjectedDose = m.Actual_Injected_Dose,
-                ActualVolume = m.Actual_volume,
-                ResidualThps = m.Residual_THPS,
+                RealInjectedDose = m.Actual_Injected_Dose,
+                Scheduled_Dose = m.Scheduled_Dose,
+                Residual_per = m.THPS_percent,
+                Estimated_FWV = m.Estimated_FWV,
+                Reported_FWV = m.Reported_FWV,
+                Calculated_FWV = m.Calculated_FWV,
                 BsrPlanct = m.BSR_planct,
                 BpaPlanct = m.BPA_planct,
                 BhtPlanct = m.BHT_planct,
@@ -98,13 +96,7 @@ public class ThpsReviewService : IThpsReviewService
         return new ThpsReviewResponseDto
         {
             Summary = summary,
-            Data = new PagedResultDto<ThpsReviewRecordDto>
-            {
-                Items = items,
-                Page = page,
-                PageSize = pageSize,
-                TotalRecords = totalRecords
-            }
+            Data = items
         };
     }
 

@@ -107,10 +107,10 @@ public class TanksController : ControllerBase
         return Ok(summary);
     }
 
-    // GET: api/tanks/thps-review
-    [HttpGet("thps-review")]
+    // POST: api/tanks/thps-review
+    [HttpPost("thps-review")]
     public async Task<ActionResult<DashboardApi.DTOs.ThpsReviewResponseDto>> GetThpsReview(
-        [FromQuery] DashboardApi.DTOs.ThpsReviewRequestDto request,
+        [FromBody] DashboardApi.DTOs.ThpsReviewRequestDto request,
         CancellationToken cancellationToken)
     {
         var result = await _thpsReviewService.GetThpsReviewAsync(request, cancellationToken);

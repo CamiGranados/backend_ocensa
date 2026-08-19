@@ -11,12 +11,6 @@ public class ThpsReviewRequestDto : IValidatableObject
 
     public int[]? Months { get; set; }
 
-    [Range(1, int.MaxValue, ErrorMessage = "page debe ser mayor o igual a 1.")]
-    public int Page { get; set; } = 1;
-
-    [Range(1, 200, ErrorMessage = "pageSize debe estar entre 1 y 200.")]
-    public int PageSize { get; set; } = 50;
-
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if (Months != null && Months.Any(m => m is < 1 or > 12))
