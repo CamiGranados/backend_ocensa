@@ -1,0 +1,82 @@
+name: backend-ci
+
+on:
+  push:
+    branches:
+      - main
+      - "codex/**"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+
+jobs:
+  tracked-safety:
+    name: Tracked files and secrets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Check tracked safety
+        run: bash .github/scripts/check-tracked-safety.sh
+
+  build-test:
+    name: Restore, build and test (.NET 8)
+    needs: tracked-safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore API
+        run: dotnet restore backend/DashboardApi/DashboardApi.csproj
+
+      - name: Restore tests
+        run: dotnet restore backend/DashboardApi.Tests/DashboardApi.Tests.csproj
+
+      - name: Report vulnerable dependencies
+        run: |
+          dotnet list backend/DashboardApi/DashboardApi.csproj package --vulnerable --include-transitive
+          dotnet list backend/DashboardApi.Tests/DashboardApi.Tests.csproj package --vulnerable --include-transitive
+
+      - name: Build API
+        run: dotnet build backend/DashboardApi/DashboardApi.csproj --configuration Release --no-restore
+
+      - name: Test contracts and unit behavior
+        run: >-
+          dotnet test backend/DashboardApi.Tests/DashboardApi.Tests.csproj
+          --configuration Release
+          --no-restore
+          --logger "trx;LogFileName=backend-tests.trx"
+          --collect "XPlat Code Coverage"
+
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-evidence
+          path: |
+            **/TestResults/**/*.trx
+            **/TestResults/**/coverage.cobertura.xml
+          if-no-files-found: warn
+          retention-days: 14

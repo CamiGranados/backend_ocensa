@@ -1,55 +1,47 @@
-# Prerequisites
-*.d
+# .NET build output
+**/bin/
+**/obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
 
-# Object files
-*.o
-*.ko
-*.obj
-*.elf
+# IDE and operating-system files
+.vs/
+.idea/
+.vscode/*.user
+.DS_Store
+Thumbs.db
 
-# Linker output
-*.ilk
-*.map
-*.exp
+# Test output
+TestResults/
+coverage/
+*.trx
+*.coverage
+*.coveragexml
 
-# Precompiled Headers
-*.gch
-*.pch
+# Local configuration and secrets
+appsettings.Local.json
+appsettings.*.Local.json
+.env
+.env.*
+*.pfx
+*.snk
 
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
+# Local databases and data extracts
+*.db
+*.db-shm
+*.db-wal
+*.bak
+*.bacpac
+*.xlsx
+*.xls
+*.csv
+*.tsv
 
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
-
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
-
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
-
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+# Temporary import material
+*.tmp
+*.upload
 
 # debug information files
 *.dwo
