@@ -57,7 +57,7 @@ public class OverviewService : IOverviewService
                 m.Reported_FWV,
                 m.Category_Nace,
                 m.Level_Alarm,
-                CompanyName = m.Company.Name
+                CompanyName = m.Company!.Name
             })
             .ToListAsync();
 
