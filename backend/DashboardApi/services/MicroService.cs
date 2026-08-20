@@ -60,9 +60,38 @@ public class MicroService : IMicroService
             })
             .ToListAsync(cancellationToken);
 
+        var monthlyControl = items
+            .GroupBy(i => new { i.Date.Year, i.Date.Month })
+            .OrderBy(g => g.Key.Year)
+            .ThenBy(g => g.Key.Month)
+            .Select(g => new MicroMonthlyControlDto
+            {
+                Year = g.Key.Year,
+                Month = g.Key.Month,
+                BsrControlPercent = ControlPercent(g.Select(i => i.BsrPlanct)),
+                BpaControlPercent = ControlPercent(g.Select(i => i.BpaPlanct)),
+                BhtControlPercent = ControlPercent(g.Select(i => i.BhtPlanct)),
+                BAntControlPercent = ControlPercent(g.Select(i => i.BAntPlanct))
+            })
+            .ToList();
+
         return new MicroResponseDto
         {
-            Data = items
+            Data = items,
+            MonthlyControl = monthlyControl
         };
+    }
+
+    // Un valor esta "en control" si es menor o igual a 10^2 (100)
+    private const decimal ControlThreshold = 100m;
+
+    private static decimal? ControlPercent(IEnumerable<decimal?> values)
+    {
+        var nonNullValues = values.Where(v => v.HasValue).Select(v => v!.Value).ToList();
+        if (nonNullValues.Count == 0)
+            return null;
+
+        var inControlCount = nonNullValues.Count(v => v <= ControlThreshold);
+        return Math.Round((decimal)inControlCount / nonNullValues.Count * 100m, 2);
     }
 }
