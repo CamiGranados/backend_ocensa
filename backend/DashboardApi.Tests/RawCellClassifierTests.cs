@@ -28,6 +28,49 @@ public sealed class RawCellClassifierTests
     }
 
     [Fact]
+    public void Excel_typed_date_precedes_numeric_with_unit_classification()
+    {
+        var expected = new DateTime(2026, 5, 23);
+
+        var token = _classifier.Classify(
+            "Datos",
+            "D2",
+            "5/23/2026 12:00:00 AM",
+            "DateTime",
+            dateValue: expected);
+
+        Assert.Equal(RawValueStatus.Date, token.Status);
+        Assert.Equal(expected, token.DateValue);
+        Assert.Null(token.NumericValue);
+        Assert.Null(token.Unit);
+        Assert.Equal("raw.date.excel_typed.v2", token.ParseRuleId);
+    }
+
+    [Fact]
+    public void Exact_iso_text_date_precedes_numeric_with_unit_classification()
+    {
+        var token = _classifier.Classify("Datos", "D2", "2021-02-01", "Text");
+
+        Assert.Equal(RawValueStatus.Date, token.Status);
+        Assert.Equal(new DateTime(2021, 2, 1), token.DateValue);
+        Assert.Null(token.NumericValue);
+        Assert.Null(token.Unit);
+        Assert.Equal("raw.date.iso_yyyy_mm_dd.v2", token.ParseRuleId);
+    }
+
+    [Theory]
+    [InlineData("2021-2-01")]
+    [InlineData("2021-02-30")]
+    [InlineData("2021-02-01T00:00:00")]
+    public void Non_exact_iso_text_is_not_silently_promoted_to_date(string raw)
+    {
+        var token = _classifier.Classify("Datos", "D2", raw, "Text");
+
+        Assert.NotEqual(RawValueStatus.Date, token.Status);
+        Assert.Null(token.DateValue);
+    }
+
+    [Fact]
     public void Comparator_is_censored_and_preserves_limit_and_unit()
     {
         var token = _classifier.Classify("Datos", "C2", "<10 ppm", "Text");

@@ -1,6 +1,6 @@
 # Contrato API-first de importación THPS
 
-Estado: **preflight únicamente; sin persistencia ni publicación**.
+Estado: **persistencia raw opcional; sin aprobación ni publicación**.
 
 ## Endpoint canónico
 
@@ -28,13 +28,17 @@ de celdas.
    celdas vacías internas.
 6. Clasifica cada valor raw sin reemplazar faltantes ni censura.
 7. Genera identidades deterministas del lote y release candidato.
-8. Devuelve 503 y elimina el temporal. No abre `AppDbContext`, no ejecuta
-   `SaveChanges` y no conserva el archivo.
+8. Si `ImportPersistenceEnabled=false`, devuelve 503 y elimina el temporal sin
+   abrir una transacción.
+9. Si la persistencia está habilitada y configurada, crea o reutiliza dentro de
+   una transacción serializable el lote, hojas, celdas raw y release
+   `pending_approval`; después elimina el temporal.
 
 ## Respuesta actual
 
-Un archivo válido devuelve HTTP `503 Service Unavailable`. La raíz es compatible
-con el contrato de cliente `ImportBatchResponse`; `release` siempre es `null`:
+Con persistencia apagada, un archivo válido devuelve HTTP `503 Service
+Unavailable`. La raíz sigue siendo compatible con `ImportBatchResponse` y
+`release` es `null`:
 
 ```json
 {
@@ -50,7 +54,7 @@ con el contrato de cliente `ImportBatchResponse`; `release` siempre es `null`:
     "batchIdentity": "<sha256 durable>",
     "fileSha256": "<sha256 del XLSX>",
     "schemaVersion": "thps-raw-v1",
-    "classifierVersion": "raw-classifier-v1",
+    "classifierVersion": "raw-classifier-v2",
     "state": "blocked"
   },
   "blockedRelease": {
@@ -61,9 +65,20 @@ con el contrato de cliente `ImportBatchResponse`; `release` siempre es `null`:
 }
 ```
 
-Los objetos detallados son evidencia de preflight; no representan filas
-persistidas. El servidor nunca responderá éxito mientras el almacenamiento no
-esté implementado, migrado, probado e idempotente.
+Con persistencia habilitada, el servidor solo responde después del commit:
+
+| HTTP | Código | Significado |
+|---:|---|---|
+| 201 | `IMPORT_BATCH_STORED` | Lote y release pendiente creados completos |
+| 200 | `IMPORT_BATCH_ALREADY_STORED` | Reintento idempotente; no duplica filas |
+
+En ambos casos `status=pending_approval`, `release.state=pending_approval`,
+`publicationEnabled=false`, aprobador y fecha de aprobación son nulos y
+`blockedRelease=null`. La respuesta no implica aceptación científica.
+
+Si el mismo lote corresponde en el futuro a un release ya publicado por un
+flujo externo auditado, el replay 200 conserva `status=published`, actor y fecha;
+este endpoint no modifica ni vuelve a publicar el release.
 
 ## Estados raw
 
@@ -84,8 +99,10 @@ esté implementado, migrado, probado e idempotente.
 aprobada; el preflight no les atribuye por sí solo significado de no detección ni
 un límite numérico.
 
-Cada token conserva `sheetName`, `sourceCell`, `rawText`, `numericValue`,
-`qualifier`, `unit`, `status`, `parseRuleId`, tipo de celda, fórmula y advertencia.
+Cada token conserva `sheetName`, `sourceCell`, ordinal de fila/columna, encabezado,
+`rawText`, `numericValue` (`decimal(38,18)` para consulta),
+`numericValueExact` (representación decimal invariante), `dateValue`, `qualifier`, `unit`, `status`,
+`parseRuleId`, tipo de celda, fórmula, advertencia y huella SHA-256 de linaje.
 Un guard recalcula el token desde `rawText` y rechaza discrepancias de valor o
 linaje antes de que pueda formar parte de un release.
 
@@ -109,5 +126,6 @@ un cambio de esquema o clasificador produce una identidad distinta.
 | 415 | `XLSX_REQUIRED` | formato no admitido |
 | 422 | `INVALID_XLSX_ENVELOPE`, `WORKBOOK_PARSE_FAILED` | XLSX inválido |
 | 503 | `IMPORT_STORAGE_NOT_READY` | preflight válido, almacenamiento bloqueado |
+| 503 | `IMPORT_STORAGE_UNAVAILABLE` | no hubo commit; almacenamiento no disponible |
 
 El importador anterior responde siempre `410 LEGACY_IMPORT_DISABLED`.

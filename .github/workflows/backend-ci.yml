@@ -67,6 +67,7 @@ jobs:
           dotnet test backend/DashboardApi.Tests/DashboardApi.Tests.csproj
           --configuration Release
           --no-restore
+          --filter "Category!=SqlServerIntegration"
           --logger "trx;LogFileName=backend-tests.trx"
           --collect "XPlat Code Coverage"
 
@@ -78,5 +79,62 @@ jobs:
           path: |
             **/TestResults/**/*.trx
             **/TestResults/**/coverage.cobertura.xml
+          if-no-files-found: warn
+          retention-days: 14
+
+  sql-integration:
+    name: SQL Server migration and transaction
+    needs: build-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore tests
+        run: dotnet restore backend/DashboardApi.Tests/DashboardApi.Tests.csproj
+
+      - name: Start isolated SQL Server with an ephemeral password
+        shell: bash
+        run: |
+          set -euo pipefail
+          sql_password="Aa1!$(openssl rand -hex 24)"
+          echo "::add-mask::$sql_password"
+          echo "THPS_SQL_TEST_PASSWORD=$sql_password" >> "$GITHUB_ENV"
+          docker run --detach --rm \
+            --name thps-sqlserver \
+            --env ACCEPT_EULA=Y \
+            --env MSSQL_PID=Developer \
+            --env MSSQL_SA_PASSWORD="$sql_password" \
+            --publish 1433:1433 \
+            mcr.microsoft.com/mssql/server:2022-latest
+
+      - name: Run isolated SQL Server integration
+        env:
+          THPS_SQL_TEST_ENABLED: "true"
+          THPS_SQL_TEST_HOST: "localhost,1433"
+          THPS_SQL_TEST_USER: "sa"
+        run: >-
+          dotnet test backend/DashboardApi.Tests/DashboardApi.Tests.csproj
+          --configuration Release
+          --no-restore
+          --filter "Category=SqlServerIntegration"
+          --logger "trx;LogFileName=backend-sql-integration.trx"
+
+      - name: Stop isolated SQL Server
+        if: always()
+        run: docker rm --force thps-sqlserver >/dev/null 2>&1 || true
+
+      - name: Upload SQL integration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-sql-integration-evidence
+          path: "**/TestResults/**/*.trx"
           if-no-files-found: warn
           retention-days: 14

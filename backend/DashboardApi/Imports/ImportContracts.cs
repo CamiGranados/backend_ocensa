@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Serialization;
 
 namespace DashboardApi.Imports;
 
@@ -21,12 +22,13 @@ public sealed class ImportFeatureOptions
 {
     public bool ImportPersistenceEnabled { get; init; }
     public bool DatasetPublicationEnabled { get; init; }
+    public bool DevelopmentAnalyticsReadEnabled { get; init; }
 }
 
 public sealed class ImportContractOptions
 {
     public string SchemaVersion { get; init; } = "thps-raw-v1";
-    public string ClassifierVersion { get; init; } = "raw-classifier-v1";
+    public string ClassifierVersion { get; init; } = "raw-classifier-v2";
 }
 
 public enum RawValueStatus
@@ -44,12 +46,16 @@ public enum RawValueStatus
 
 public enum ImportBatchState
 {
-    Blocked
+    Blocked,
+    Stored
 }
 
 public enum ImportResponseStatus
 {
-    Blocked
+    Blocked,
+    PendingApproval,
+    ApprovedUat,
+    Published
 }
 
 public enum DatasetReleaseState
@@ -71,7 +77,11 @@ public sealed record RawCellToken(
     string ParseRuleId,
     string CellDataType,
     string? FormulaA1,
-    string? Warning);
+    string? Warning,
+    DateTime? DateValue = null,
+    int? SourceRowNumber = null,
+    int? SourceColumnNumber = null,
+    string? HeaderText = null);
 
 public sealed record WorkbookSheetInspection(
     int SheetIndex,
@@ -82,7 +92,13 @@ public sealed record WorkbookSheetInspection(
     long InspectedCellCount,
     IReadOnlyDictionary<RawValueStatus, long> StatusCounts,
     IReadOnlyList<RawCellToken> LineageSamples,
-    IReadOnlyList<string> Warnings);
+    IReadOnlyList<string> Warnings)
+{
+    // Full raw cells are an internal persistence plan. They are deliberately
+    // excluded from the HTTP response, which only exposes bounded samples.
+    [JsonIgnore]
+    public IReadOnlyList<RawCellToken> RawCells { get; init; } = Array.Empty<RawCellToken>();
+}
 
 public sealed record WorkbookInspection(
     int SheetCount,
@@ -111,7 +127,8 @@ public sealed record DatasetReleaseContract(
     DatasetReleaseState State,
     string? ApprovedBy,
     DateTimeOffset? ApprovedAtUtc,
-    IReadOnlyList<string> BlockedReasons);
+    IReadOnlyList<string> BlockedReasons,
+    bool IsPublished = false);
 
 public sealed record ImportPreflightResponse(
     string ImportBatchId,
@@ -123,7 +140,14 @@ public sealed record ImportPreflightResponse(
     bool PersistenceEnabled,
     bool PublicationEnabled,
     ImportBatchContract ImportBatch,
-    DatasetReleaseContract BlockedRelease);
+    DatasetReleaseContract? BlockedRelease,
+    bool IdempotentReplay = false,
+    bool AnalyticsReadEnabled = false,
+    bool Published = false);
+
+public sealed record ImportPreflightResult(
+    int HttpStatusCode,
+    ImportPreflightResponse Response);
 
 public sealed record ApiErrorResponse(
     string Code,

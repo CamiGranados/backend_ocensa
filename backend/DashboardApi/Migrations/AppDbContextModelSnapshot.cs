@@ -17,7 +17,7 @@ namespace DashboardApi.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.6")
+                .HasAnnotation("ProductVersion", "8.0.30")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -37,6 +37,371 @@ namespace DashboardApi.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Companies");
+                });
+
+            modelBuilder.Entity("DashboardApi.Imports.Persistence.DatasetReleaseEntity", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset?>("ApprovedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("BlockedReasonsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ClassifierVersion")
+                        .IsRequired()
+                        .IsUnicode(false)
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<long>("ImportBatchId")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsPublished")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ReleaseIdentity")
+                        .IsRequired()
+                        .IsUnicode(false)
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<int>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.Property<string>("SchemaVersion")
+                        .IsRequired()
+                        .IsUnicode(false)
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .IsUnicode(false)
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ImportBatchId")
+                        .IsUnique();
+
+                    b.HasIndex("ReleaseIdentity")
+                        .IsUnique();
+
+                    b.HasIndex("IsPublished", "State", "CreatedAtUtc");
+
+                    b.ToTable("DatasetReleases", t =>
+                        {
+                            t.HasCheckConstraint("CK_DatasetReleases_PublishedRequiresApproval", "[IsPublished] = 0 OR ([State] = 'Published' AND [ApprovedBy] IS NOT NULL AND [ApprovedAtUtc] IS NOT NULL)");
+                            t.HasCheckConstraint("CK_DatasetReleases_Revision", "[Revision] >= 0");
+                            t.HasCheckConstraint("CK_DatasetReleases_StateMatchesPublication", "([State] = 'Published' AND [IsPublished] = 1) OR ([State] <> 'Published' AND [IsPublished] = 0)");
+                        });
+                });
+
+            modelBuilder.Entity("DashboardApi.Imports.Persistence.ImportBatchEntity", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("BatchIdentity")
+                        .IsRequired()
+                        .IsUnicode(false)
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("BlockedReasonsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ClassifierVersion")
+                        .IsRequired()
+                        .IsUnicode(false)
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("FileSha256")
+                        .IsRequired()
+                        .IsUnicode(false)
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<long>("FileSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("InspectedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<long>("InspectedCellCount")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<int>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.Property<string>("SchemaVersion")
+                        .IsRequired()
+                        .IsUnicode(false)
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<int>("SheetCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .IsUnicode(false)
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("WarningsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchIdentity")
+                        .IsUnique();
+
+                    b.HasIndex("FileSha256", "SchemaVersion", "ClassifierVersion")
+                        .IsUnique();
+
+                    b.ToTable("ImportBatches", t =>
+                        {
+                            t.HasCheckConstraint("CK_ImportBatches_CellCount", "[InspectedCellCount] >= 0");
+                            t.HasCheckConstraint("CK_ImportBatches_FileSize", "[FileSizeBytes] > 0");
+                            t.HasCheckConstraint("CK_ImportBatches_Revision", "[Revision] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("DashboardApi.Imports.Persistence.RawCellEntity", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("CellDataType")
+                        .IsRequired()
+                        .IsUnicode(false)
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<DateTime?>("DateValue")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FormulaA1")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("HeaderSha256")
+                        .IsUnicode(false)
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("HeaderText")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("LineageSha256")
+                        .IsRequired()
+                        .IsUnicode(false)
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<decimal?>("NumericValue")
+                        .HasPrecision(38, 18)
+                        .HasColumnType("decimal(38,18)");
+
+                    b.Property<string>("NumericValueExact")
+                        .IsUnicode(false)
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("ParseRuleId")
+                        .IsRequired()
+                        .IsUnicode(false)
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<string>("Qualifier")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("RawText")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SourceCell")
+                        .IsRequired()
+                        .IsUnicode(false)
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<int>("SourceColumnNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SourceRowNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .IsUnicode(false)
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("Unit")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("Warning")
+                        .IsUnicode(false)
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<long>("WorkbookSheetId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("WorkbookSheetId", "DateValue");
+
+                    b.HasIndex("WorkbookSheetId", "HeaderSha256");
+
+                    b.HasIndex("WorkbookSheetId", "Sequence")
+                        .IsUnique();
+
+                    b.HasIndex("WorkbookSheetId", "SourceCell")
+                        .IsUnique();
+
+                    b.HasIndex("WorkbookSheetId", "SourceRowNumber", "SourceColumnNumber")
+                        .IsUnique();
+
+                    b.ToTable("RawCells", t =>
+                        {
+                            t.HasCheckConstraint("CK_RawCells_Column", "[SourceColumnNumber] > 0");
+                            t.HasCheckConstraint("CK_RawCells_Row", "[SourceRowNumber] > 0");
+                            t.HasCheckConstraint("CK_RawCells_Sequence", "[Sequence] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("DashboardApi.Imports.Persistence.WorkbookSheetEntity", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("DataRowCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("HeaderRowSource")
+                        .IsUnicode(false)
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("HeadersJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("ImportBatchId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("InspectedCellCount")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("SheetIndex")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SheetName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("StatusCountsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("WarningsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ImportBatchId", "SheetIndex")
+                        .IsUnique();
+
+                    b.HasIndex("ImportBatchId", "SheetName")
+                        .IsUnique();
+
+                    b.ToTable("WorkbookSheets", t =>
+                        {
+                            t.HasCheckConstraint("CK_WorkbookSheets_CellCount", "[InspectedCellCount] >= 0");
+                            t.HasCheckConstraint("CK_WorkbookSheets_Index", "[SheetIndex] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("DashboardApi.Imports.Persistence.DatasetReleaseEntity", b =>
+                {
+                    b.HasOne("DashboardApi.Imports.Persistence.ImportBatchEntity", "ImportBatch")
+                        .WithOne("DatasetRelease")
+                        .HasForeignKey("DashboardApi.Imports.Persistence.DatasetReleaseEntity", "ImportBatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ImportBatch");
+                });
+
+            modelBuilder.Entity("DashboardApi.Imports.Persistence.RawCellEntity", b =>
+                {
+                    b.HasOne("DashboardApi.Imports.Persistence.WorkbookSheetEntity", "WorkbookSheet")
+                        .WithMany("RawCells")
+                        .HasForeignKey("WorkbookSheetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("WorkbookSheet");
+                });
+
+            modelBuilder.Entity("DashboardApi.Imports.Persistence.WorkbookSheetEntity", b =>
+                {
+                    b.HasOne("DashboardApi.Imports.Persistence.ImportBatchEntity", "ImportBatch")
+                        .WithMany("Sheets")
+                        .HasForeignKey("ImportBatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ImportBatch");
                 });
 
             modelBuilder.Entity("DashboardApi.Models.Measurement", b =>
@@ -294,6 +659,18 @@ namespace DashboardApi.Migrations
                         .IsRequired();
 
                     b.Navigation("Measurement");
+                });
+
+            modelBuilder.Entity("DashboardApi.Imports.Persistence.ImportBatchEntity", b =>
+                {
+                    b.Navigation("DatasetRelease");
+
+                    b.Navigation("Sheets");
+                });
+
+            modelBuilder.Entity("DashboardApi.Imports.Persistence.WorkbookSheetEntity", b =>
+                {
+                    b.Navigation("RawCells");
                 });
 #pragma warning restore 612, 618
         }

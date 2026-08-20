@@ -17,6 +17,8 @@ public sealed class ImportBatchesController : ControllerBase
     [HttpPost]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(ImportLimits.MaxMultipartBodyBytes)]
+    [ProducesResponseType<ImportPreflightResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ImportPreflightResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ImportPreflightResponse>(StatusCodes.Status503ServiceUnavailable)]
     [ProducesResponseType<ApiErrorResponse>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ApiErrorResponse>(StatusCodes.Status413PayloadTooLarge)]
@@ -27,8 +29,8 @@ public sealed class ImportBatchesController : ControllerBase
     {
         try
         {
-            var response = await _preflightService.PreflightAsync(Request, cancellationToken);
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, response);
+            var result = await _preflightService.PreflightAsync(Request, cancellationToken);
+            return StatusCode(result.HttpStatusCode, result.Response);
         }
         catch (ImportPreflightException exception)
         {

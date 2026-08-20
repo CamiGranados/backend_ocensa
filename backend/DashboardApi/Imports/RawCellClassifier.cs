@@ -12,12 +12,16 @@ public interface IRawCellClassifier
         string sourceCell,
         string rawText,
         string cellDataType,
-        string? formulaA1 = null);
+        string? formulaA1 = null,
+        DateTime? dateValue = null,
+        int? sourceRowNumber = null,
+        int? sourceColumnNumber = null,
+        string? headerText = null);
 }
 
 public sealed partial class RawCellClassifier : IRawCellClassifier
 {
-    public const string CurrentVersion = "raw-classifier-v1";
+    public const string CurrentVersion = "raw-classifier-v2";
 
     private static readonly CultureInfo ColombianCulture = CultureInfo.GetCultureInfo("es-CO");
     private static readonly HashSet<string> NotDetectedTokens = new(StringComparer.OrdinalIgnoreCase)
@@ -40,7 +44,11 @@ public sealed partial class RawCellClassifier : IRawCellClassifier
         string sourceCell,
         string rawText,
         string cellDataType,
-        string? formulaA1 = null)
+        string? formulaA1 = null,
+        DateTime? dateValue = null,
+        int? sourceRowNumber = null,
+        int? sourceColumnNumber = null,
+        string? headerText = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sheetName);
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceCell);
@@ -58,6 +66,51 @@ public sealed partial class RawCellClassifier : IRawCellClassifier
         if (trimmed.Length == 0)
         {
             return Token(RawValueStatus.Missing, "raw.missing.blank.v1", warning: formulaWarning);
+        }
+
+        // Type and exact ISO date recognition must precede the permissive
+        // number-with-unit grammar. Otherwise values such as 2021-02-01 or an
+        // Excel-formatted date can be misread as a number followed by a unit.
+        if (string.Equals(cellDataType, "DateTime", StringComparison.OrdinalIgnoreCase))
+        {
+            return dateValue is null
+                ? Token(
+                    RawValueStatus.Invalid,
+                    "raw.invalid.date.excel_typed.v2",
+                    warning: "excel_date_value_missing")
+                : Token(
+                    RawValueStatus.Date,
+                    "raw.date.excel_typed.v2",
+                    warning: formulaWarning,
+                    typedDateValue: dateValue);
+        }
+
+        if (string.Equals(cellDataType, "Text", StringComparison.OrdinalIgnoreCase)
+            && DateTime.TryParseExact(
+                trimmed,
+                "yyyy-MM-dd",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var isoDateValue))
+        {
+            return Token(
+                RawValueStatus.Date,
+                "raw.date.iso_yyyy_mm_dd.v2",
+                warning: formulaWarning,
+                typedDateValue: isoDateValue);
+        }
+
+        if (string.Equals(cellDataType, "TimeSpan", StringComparison.OrdinalIgnoreCase))
+        {
+            return Token(
+                RawValueStatus.Text,
+                "raw.text.excel_timespan.v2",
+                warning: "timespan_semantics_unapproved");
+        }
+
+        if (string.Equals(cellDataType, "Boolean", StringComparison.OrdinalIgnoreCase))
+        {
+            return Token(RawValueStatus.Boolean, "raw.boolean.excel_typed.v1", warning: formulaWarning);
         }
 
         if (NotDetectedTokens.Contains(trimmed))
@@ -146,17 +199,6 @@ public sealed partial class RawCellClassifier : IRawCellClassifier
             return Token(RawValueStatus.Invalid, "raw.invalid.numeric.v1", warning: "numeric_cell_not_parseable");
         }
 
-        if (string.Equals(cellDataType, "DateTime", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(cellDataType, "TimeSpan", StringComparison.OrdinalIgnoreCase))
-        {
-            return Token(RawValueStatus.Date, "raw.date.excel_typed.v1", warning: formulaWarning);
-        }
-
-        if (string.Equals(cellDataType, "Boolean", StringComparison.OrdinalIgnoreCase))
-        {
-            return Token(RawValueStatus.Boolean, "raw.boolean.excel_typed.v1", warning: formulaWarning);
-        }
-
         if (LooksNumericOrCensored(trimmed))
         {
             return Token(RawValueStatus.Invalid, "raw.invalid.numeric_like.v1", warning: "numeric_like_text_not_parseable");
@@ -170,7 +212,8 @@ public sealed partial class RawCellClassifier : IRawCellClassifier
             decimal? numericValue = null,
             string? qualifier = null,
             string? unit = null,
-            string? warning = null)
+            string? warning = null,
+            DateTime? typedDateValue = null)
         {
             return new RawCellToken(
                 sheetName,
@@ -183,7 +226,11 @@ public sealed partial class RawCellClassifier : IRawCellClassifier
                 parseRuleId,
                 cellDataType,
                 formulaA1,
-                warning);
+                warning,
+                typedDateValue,
+                sourceRowNumber,
+                sourceColumnNumber,
+                headerText);
         }
     }
 
@@ -290,13 +337,21 @@ public sealed class RawCellLineageGuard
             token.SourceCell,
             token.RawText,
             token.CellDataType,
-            token.FormulaA1);
+            token.FormulaA1,
+            token.DateValue,
+            token.SourceRowNumber,
+            token.SourceColumnNumber,
+            token.HeaderText);
 
         var consistent = token.Status == recomputed.Status
             && token.NumericValue == recomputed.NumericValue
             && string.Equals(token.Qualifier, recomputed.Qualifier, StringComparison.Ordinal)
             && string.Equals(token.Unit, recomputed.Unit, StringComparison.Ordinal)
-            && string.Equals(token.ParseRuleId, recomputed.ParseRuleId, StringComparison.Ordinal);
+            && string.Equals(token.ParseRuleId, recomputed.ParseRuleId, StringComparison.Ordinal)
+            && token.DateValue == recomputed.DateValue
+            && token.SourceRowNumber == recomputed.SourceRowNumber
+            && token.SourceColumnNumber == recomputed.SourceColumnNumber
+            && string.Equals(token.HeaderText, recomputed.HeaderText, StringComparison.Ordinal);
 
         if (!consistent)
         {

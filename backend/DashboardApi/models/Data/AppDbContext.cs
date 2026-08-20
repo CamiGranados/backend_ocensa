@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using DashboardApi.Models;
+using DashboardApi.Imports.Persistence;
 
 namespace DashboardApi.Data
 {
@@ -12,6 +13,10 @@ namespace DashboardApi.Data
         public DbSet<Tank> Tanks { get; set; }
         public DbSet<Upload> Uploads { get; set; }
         public DbSet<PhysicalChemistry> PhysicalChemistries { get; set; }
+        public DbSet<ImportBatchEntity> ImportBatches => Set<ImportBatchEntity>();
+        public DbSet<WorkbookSheetEntity> WorkbookSheets => Set<WorkbookSheetEntity>();
+        public DbSet<RawCellEntity> RawCells => Set<RawCellEntity>();
+        public DbSet<DatasetReleaseEntity> DatasetReleases => Set<DatasetReleaseEntity>();
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
@@ -21,9 +26,13 @@ namespace DashboardApi.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            base.OnModelCreating(modelBuilder);
+
             // Combined index — this is what makes each view's query fast
             modelBuilder.Entity<Measurement>()
                 .HasIndex(m => new { m.CompanyId, m.TankId, m.Date });
+
+            ImportStorageModelConfiguration.Configure(modelBuilder);
         }
     }
 }

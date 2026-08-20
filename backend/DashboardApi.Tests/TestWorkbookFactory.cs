@@ -15,8 +15,12 @@ internal static class TestWorkbookFactory
             sheet.Cell("A1").Value = "Tanque";
             sheet.Cell("B1").Value = "Residual THPS";
             sheet.Cell("C1").Value = "Nota";
+            sheet.Cell("D1").Value = "Fecha";
+            sheet.Cell("E1").Value = "Precisión";
             sheet.Cell("A2").Value = 0;
             sheet.Cell("C2").Value = "<10 ppm";
+            sheet.Cell("D2").Value = new DateTime(2026, 8, 20, 0, 0, 0, DateTimeKind.Unspecified);
+            sheet.Cell("E2").Value = "0.07945967421533573";
         }
 
         using var stream = new MemoryStream();

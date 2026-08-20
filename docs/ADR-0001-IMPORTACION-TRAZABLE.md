@@ -2,7 +2,7 @@
 
 - Estado: aceptado para implementación por etapas
 - Fecha: 2026-08-20
-- Alcance actual: preflight fail-closed
+- Alcance actual: persistencia raw/release; publicación fail-closed
 
 ## Contexto
 
@@ -24,17 +24,17 @@ Separar el proceso en cuatro estados y tres capas de datos:
 3. **Dataset release**: transformación canónica versionada y aprobación explícita.
 4. **Published release**: única fuente autorizada para consultas y gráficas.
 
-Capas propuestas para SQL Server:
+Capas implementadas/propuestas para SQL Server:
 
 | Capa | Tablas mínimas | Restricción clave |
 |---|---|---|
-| batch | `ImportBatch`, `ImportSheet`, `RawCell` | índice único por identidad durable |
-| release | `DatasetRelease`, `ReleaseLineage`, `ReleaseApproval` | identidad incluye esquema y clasificador |
+| batch | `ImportBatches`, `WorkbookSheets`, `RawCells` | índice único por hash+esquema+clasificador |
+| release | `DatasetReleases` | identidad incluye esquema y clasificador; nace pendiente |
 | published | vistas/tablas canónicas por release | toda consulta exige `datasetReleaseId` publicado |
 
-La transacción futura debe crear o reutilizar un lote completo; nunca dejar
-cargas parciales. Un reintento con la misma identidad debe devolver el mismo
-lote y no duplicar filas. La publicación es otra transacción y requiere actor,
+La transacción implementada crea o reutiliza un lote completo; nunca confirma
+cargas parciales. Un reintento con la misma identidad devuelve el mismo lote y
+no duplica filas. La publicación será otra transacción y requiere actor,
 fecha, versiones, conteos reconciliados y evidencia de linaje.
 
 ## Interruptores y cierre por defecto
@@ -43,10 +43,10 @@ fecha, versiones, conteos reconciliados y evidencia de linaje.
 - `DatasetPublicationEnabled=false`
 - analítica legacy bloqueada incondicionalmente, sin toggle de reapertura
 
-El código actual no contiene repositorio de escritura para el endpoint
-versionado. Además, el arranque valida que los dos flags sigan en `false`; un
-intento de activación falla con `P0_FEATURE_LOCK`. Los flags no sustituyen la
-implementación ni la aprobación.
+El repositorio EF de escritura solo se invoca con persistencia habilitada y una
+conexión externa; el arranque falla si falta esa conexión. La publicación no
+puede activarse: cualquier intento falla con `DATASET_PUBLICATION_LOCK`. Los
+flags no sustituyen aprobación, autenticación ni UAT.
 
 ## Guardas de linaje
 

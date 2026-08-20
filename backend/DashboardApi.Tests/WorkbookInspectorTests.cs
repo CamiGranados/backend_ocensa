@@ -1,5 +1,6 @@
 using DashboardApi.Imports;
 using Microsoft.AspNetCore.Http;
+using System.Text.Json;
 
 namespace DashboardApi.Tests;
 
@@ -21,10 +22,18 @@ public sealed class WorkbookInspectorTests
             result.Sheets.Select(sheet => sheet.SheetName).ToArray());
         Assert.All(result.Sheets, sheet =>
         {
-            Assert.Equal(6, sheet.InspectedCellCount);
+            Assert.Equal(10, sheet.InspectedCellCount);
             Assert.Equal(1, sheet.StatusCounts[RawValueStatus.Missing]);
             Assert.Equal(1, sheet.StatusCounts[RawValueStatus.ReportedZero]);
             Assert.Equal(1, sheet.StatusCounts[RawValueStatus.Censored]);
+            Assert.Equal(1, sheet.StatusCounts[RawValueStatus.Date]);
+            Assert.Equal(sheet.InspectedCellCount, sheet.RawCells.Count);
+            Assert.Contains(
+                sheet.RawCells,
+                token => token.SourceRowNumber == 2
+                    && token.SourceColumnNumber == 4
+                    && token.HeaderText == "Fecha"
+                    && token.DateValue == new DateTime(2026, 8, 20));
             Assert.Contains(sheet.LineageSamples, token => token.SourceCell.Contains("A1", StringComparison.Ordinal));
         });
     }
@@ -41,5 +50,22 @@ public sealed class WorkbookInspectorTests
 
         Assert.Equal(StatusCodes.Status422UnprocessableEntity, exception.StatusCode);
         Assert.Equal("INVALID_XLSX_ENVELOPE", exception.Code);
+    }
+
+    [Fact]
+    public void Full_raw_persistence_plan_is_not_serialized_in_http_contracts()
+    {
+        var bytes = TestWorkbookFactory.Create("Datos");
+        using var stream = new MemoryStream(bytes);
+        var classifier = new RawCellClassifier();
+        var result = new WorkbookInspector(
+            classifier,
+            new RawCellLineageGuard(classifier))
+            .Inspect(stream, CancellationToken.None);
+
+        var json = JsonSerializer.Serialize(result);
+
+        Assert.DoesNotContain("RawCells", json, StringComparison.OrdinalIgnoreCase);
+        Assert.NotEmpty(result.Sheets.Single().RawCells);
     }
 }

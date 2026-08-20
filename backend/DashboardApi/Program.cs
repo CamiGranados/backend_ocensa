@@ -1,7 +1,10 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DashboardApi.Analytics;
 using DashboardApi.Data;
 using DashboardApi.Imports;
+using DashboardApi.Imports.Development;
+using DashboardApi.Imports.Persistence;
 using DashboardApi.Services;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
@@ -65,13 +68,28 @@ builder.Services.AddCors(options =>
     });
 });
 
+var configuredFeatures = builder.Configuration
+    .GetSection("Features")
+    .Get<ImportFeatureOptions>() ?? new ImportFeatureOptions();
+var configuredImportContract = builder.Configuration
+    .GetSection("Import")
+    .Get<ImportContractOptions>() ?? new ImportContractOptions();
+var configuredDevelopmentAnalytics = builder.Configuration
+    .GetSection(DevelopmentAnalyticsConstants.ConfigurationSection)
+    .Get<DevelopmentAnalyticsOptions>() ?? new DevelopmentAnalyticsOptions();
+
+DevelopmentAnalyticsConfigurationValidator.EnsureValid(
+    configuredFeatures,
+    configuredImportContract,
+    configuredDevelopmentAnalytics,
+    builder.Environment.EnvironmentName);
+
 builder.Services
     .AddOptions<ImportFeatureOptions>()
     .Bind(builder.Configuration.GetSection("Features"))
     .Validate(
-        options => !options.ImportPersistenceEnabled
-            && !options.DatasetPublicationEnabled,
-        "P0_FEATURE_LOCK: persistencia y publicación deben permanecer deshabilitadas.")
+        options => !options.DatasetPublicationEnabled,
+        "DATASET_PUBLICATION_LOCK: publicación debe permanecer deshabilitada.")
     .ValidateOnStart();
 builder.Services
     .AddOptions<ImportContractOptions>()
@@ -84,15 +102,23 @@ builder.Services
                 StringComparison.Ordinal),
         "IMPORT_CONTRACT_INVALID: esquema requerido y versión de clasificador exacta.")
     .ValidateOnStart();
+builder.Services
+    .AddOptions<DevelopmentAnalyticsOptions>()
+    .Bind(builder.Configuration.GetSection(
+        DevelopmentAnalyticsConstants.ConfigurationSection));
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IRawCellClassifier, RawCellClassifier>();
 builder.Services.AddSingleton<RawCellLineageGuard>();
 builder.Services.AddSingleton<IWorkbookInspector, WorkbookInspector>();
 builder.Services.AddScoped<IMultipartWorkbookReader, MultipartWorkbookReader>();
+builder.Services.AddScoped<IImportBatchStore, EfImportBatchStore>();
+builder.Services.AddScoped<IDevelopmentReleaseApprovalService, DevelopmentReleaseApprovalService>();
+builder.Services.AddScoped<IDevelopmentAnalyticsReadGate, DevelopmentAnalyticsReadGate>();
 builder.Services.AddScoped<IImportPreflightService, ImportPreflightService>();
+builder.Services.AddTraceableAnalytics();
 
-// Existing read APIs remain available. Their SQL connection must be provided at runtime
-// through ConnectionStrings__DefaultConnection or another external configuration provider.
+// Existing analytics code remains registered only to preserve compatibility;
+// LegacyAnalyticsGateMiddleware keeps every legacy analytics route unreachable.
 builder.Services.AddSingleton<ConfigService>();
 builder.Services.AddScoped<IAnalysisService, AnalysisService>();
 builder.Services.AddScoped<OverviewService>();
@@ -100,11 +126,25 @@ builder.Services.AddScoped<IThpsReviewService, ThpsReviewService>();
 builder.Services.AddScoped<IMicroService, MicroService>();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var importPersistenceEnabled = configuredFeatures.ImportPersistenceEnabled;
+if (importPersistenceEnabled && string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException(
+        "IMPORT_CONNECTION_REQUIRED: configure ConnectionStrings__DefaultConnection externamente antes de habilitar persistencia.");
+}
+
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     if (!string.IsNullOrWhiteSpace(connectionString))
     {
-        options.UseSqlServer(connectionString, sql => sql.CommandTimeout(180));
+        options.UseSqlServer(connectionString, sql =>
+        {
+            sql.CommandTimeout(180);
+            sql.EnableRetryOnFailure(
+                maxRetryCount: 3,
+                maxRetryDelay: TimeSpan.FromSeconds(5),
+                errorNumbersToAdd: null);
+        });
     }
 });
 
@@ -116,6 +156,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseMiddleware<DevelopmentAnalyticsLoopbackMiddleware>();
 app.UseHttpsRedirection();
 app.UseCors(DashboardCorsPolicy);
 app.UseMiddleware<LegacyAnalyticsGateMiddleware>();

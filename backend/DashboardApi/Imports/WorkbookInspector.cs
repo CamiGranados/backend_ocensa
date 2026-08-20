@@ -110,20 +110,34 @@ public sealed class WorkbookInspector : IWorkbookInspector
 
                 var statusCounts = EmptyStatusCounts().ToDictionary(pair => pair.Key, pair => pair.Value);
                 var samples = new List<RawCellToken>(ImportLimits.MaxLineageSamplesPerSheet);
+                var rawCells = new List<RawCellToken>(checked((int)sheetCellCount));
 
                 foreach (var cell in range.Cells())
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     var formula = cell.HasFormula ? cell.FormulaA1 : null;
+                    var headerOffset = cell.Address.ColumnNumber
+                        - range.RangeAddress.FirstAddress.ColumnNumber;
+                    var headerText = headerOffset >= 0 && headerOffset < headers.Length
+                        ? headers[headerOffset]
+                        : null;
+                    var dateValue = cell.DataType == XLDataType.DateTime
+                        ? cell.GetDateTime()
+                        : (DateTime?)null;
                     var token = _classifier.Classify(
                         worksheet.Name,
                         cell.Address.ToString(),
                         cell.GetString(),
                         cell.DataType.ToString(),
-                        formula);
+                        formula,
+                        dateValue,
+                        cell.Address.RowNumber,
+                        cell.Address.ColumnNumber,
+                        headerText);
 
                     _lineageGuard.EnsureTokenMatchesRawSource(token);
                     statusCounts[token.Status]++;
+                    rawCells.Add(token);
 
                     if (samples.Count < ImportLimits.MaxLineageSamplesPerSheet)
                     {
@@ -140,7 +154,10 @@ public sealed class WorkbookInspector : IWorkbookInspector
                     sheetCellCount,
                     statusCounts,
                     samples,
-                    warnings));
+                    warnings)
+                {
+                    RawCells = rawCells
+                });
             }
 
             return new WorkbookInspection(
