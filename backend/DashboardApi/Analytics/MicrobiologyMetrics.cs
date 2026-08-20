@@ -424,7 +424,7 @@ public sealed class MicrobiologyMetricCalculator
         var numerator = isCoverageMetric
             ? n
             : groupResults.Single().OutOfControlN;
-        var coverage = eligibleN == 0 ? null : decimal.Divide(n, eligibleN);
+        decimal? coverage = eligibleN == 0 ? null : decimal.Divide(n, eligibleN);
         var coveragePayload = isCoverageMetric
             ? BuildCoveragePayload(
                 context.DatasetReleaseId,
@@ -499,7 +499,7 @@ public sealed class MicrobiologyMetricCalculator
         var outOfControlN = classifications.Count(
             classification => classification == MicroThresholdClassification.OutOfControl);
         var thresholdEvaluableN = inControlN + outOfControlN;
-        var coverage = eligibleN == 0
+        decimal? coverage = eligibleN == 0
             ? null
             : decimal.Divide(thresholdEvaluableN, eligibleN);
         var groupFilters = CanonicalFilters(

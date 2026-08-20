@@ -124,9 +124,12 @@ public sealed class WorkbookInspector : IWorkbookInspector
                     var dateValue = cell.DataType == XLDataType.DateTime
                         ? cell.GetDateTime()
                         : (DateTime?)null;
+                    var sourceCell = cell.Address.ToString()
+                        ?? throw new InvalidDataException(
+                            "ClosedXML returned a cell address without a string representation.");
                     var token = _classifier.Classify(
                         worksheet.Name,
-                        cell.Address.ToString(),
+                        sourceCell,
                         cell.GetString(),
                         cell.DataType.ToString(),
                         formula,
