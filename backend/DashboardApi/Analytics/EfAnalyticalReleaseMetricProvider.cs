@@ -679,11 +679,11 @@ public sealed class EfAnalyticalReleaseMetricProvider :
         var sheets = await _dbContext.WorkbookSheets
             .AsNoTracking()
             .Where(sheet => sheet.ImportBatchId == importBatchId)
+            .OrderBy(sheet => sheet.Id)
             .Select(sheet => new SheetCandidate(
                 sheet.Id,
                 sheet.SheetName,
                 sheet.DataRowCount))
-            .OrderBy(sheet => sheet.Id)
             .ToArrayAsync(cancellationToken);
         var candidates = new List<ResolvedSheet>();
         foreach (var sheet in sheets)
