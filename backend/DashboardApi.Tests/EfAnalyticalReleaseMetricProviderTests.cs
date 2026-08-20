@@ -313,7 +313,7 @@ public sealed class EfAnalyticalReleaseMetricProviderTests
         Assert.Equal(new[] { 2024, 2025, 2026 }, options.Years);
         Assert.DoesNotContain(options.Tanks, tank => tank.Id == "RAW-NOISE");
         Assert.Equal(
-            new[]
+            new (string? MetricId, string? ChartId)[]
             {
                 (MetricCatalog.DataCoverageV1, "H11"),
                 (CorrosionCouponCatalog.MetricId, CorrosionCouponCatalog.ChartId)
