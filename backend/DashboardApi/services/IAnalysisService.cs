@@ -73,12 +73,13 @@ public class AnalysisService : IAnalysisService
         };
     }
 
-    // Eventos microbiológicos en control: eventos = registros con Standard_Sampling_Type conteniendo "antes";
+    // Eventos microbiológicos en control: eventos = registros con Standard_Sampling_Type = "Prebache"
+    // (estandarizado en la carga a partir de antes/antes_1/antes_dc/pre_do/...);
     // un evento está "en control" cuando su BSR_planct (misma compañía y fecha) es menor a 10^2.
     private async Task<MicrobiologicalEventsDto> CalculateMicrobiologicalEvents(long tankId, int[] years)
     {
         var eventKeys = await QueryTank(tankId, years)
-            .Where(m => m.Standard_Sampling_Type != "" && m.Standard_Sampling_Type.ToUpper().Contains("ANTES"))
+            .Where(m => m.Standard_Sampling_Type == "Prebache")
             .Select(m => new { m.CompanyId, m.Date })
             .Distinct()
             .ToListAsync();

@@ -63,7 +63,7 @@ public class ThpsReviewService : IThpsReviewService
             .ToListAsync(cancellationToken);
 
         var eventsWithRealDoseCount = await query
-            .CountAsync(m => m.Standard_Sampling_Type != "" && m.Standard_Sampling_Type.ToUpper().Contains("ANTES"), cancellationToken);
+            .CountAsync(m => m.Standard_Sampling_Type == "Prebache", cancellationToken);
 
         var summary = new ThpsReviewSummaryDto
         {

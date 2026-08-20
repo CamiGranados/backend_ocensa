@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using DashboardApi.Config;
 using DashboardApi.DTOs;
 
@@ -9,6 +10,10 @@ namespace DashboardApi.Services
         // Los archivos de origen usan formato numérico colombiano (coma decimal, ej. "6,95").
         // CultureInfo.InvariantCulture trata la coma como separador de miles y arruina el valor.
         private static readonly CultureInfo CulturaDatos = CultureInfo.GetCultureInfo("es-CO");
+
+        // Columna cuyos valores (antes_1, antes_dc, despues_do, seguimiento_2, ...) se
+        // estandarizan a Prebache / Postbache / Seguimiento antes de guardarse en base de datos.
+        private const string ColumnaTipoMuestreo = "Tipo_Muestreo_norm";
 
         private readonly ConfigService _configService;
 
@@ -83,6 +88,12 @@ namespace DashboardApi.Services
                     continue;
                 }
 
+                var errorTipoMuestreo = NormalizarTipoMuestreo(fila, numeroFilaExcel);
+                if (errorTipoMuestreo != null)
+                {
+                    resultado.Errores.Add(errorTipoMuestreo);
+                }
+
                 foreach (var colConfig in columnasConfig)
                 {
                     if (!fila.ContainsKey(colConfig.Nombre)) continue; // la columna no vino en este Excel
@@ -138,6 +149,58 @@ namespace DashboardApi.Services
                     fila[col.Nombre] = string.Empty;
                 }
             }
+        }
+
+        // Tipo_Muestreo_norm llega con muchas variantes de un mismo concepto (antes, antes_1,
+        // antes_dc, pre_do, despues, post_1, seguimiento_dc, no_disponible, ...). Se estandariza a
+        // una de cuatro etiquetas para que las consultas de análisis (IAnalysisService,
+        // ThpsReviewService) puedan filtrar por un valor único en vez de conocer todas las
+        // variantes de origen. Vacío se deja vacío (columna no obligatoria).
+        private static ErrorValidacionDto? NormalizarTipoMuestreo(Dictionary<string, string> fila, int numeroFila)
+        {
+            if (!fila.TryGetValue(ColumnaTipoMuestreo, out var valorOriginal) || string.IsNullOrWhiteSpace(valorOriginal))
+            {
+                return null; // columna no obligatoria: vacío no es un error
+            }
+
+            var normalizado = QuitarTildes(valorOriginal.Trim()).ToUpperInvariant();
+            var compacto = new string(normalizado.Where(char.IsLetter).ToArray());
+
+            if (normalizado.StartsWith("ANTES") || normalizado.StartsWith("PRE"))
+            {
+                fila[ColumnaTipoMuestreo] = "Prebache";
+            }
+            else if (normalizado.StartsWith("DESPUES") || normalizado.StartsWith("POST"))
+            {
+                fila[ColumnaTipoMuestreo] = "Postbache";
+            }
+            else if (normalizado.Contains("SEGUIMIENTO"))
+            {
+                fila[ColumnaTipoMuestreo] = "Seguimiento";
+            }
+            else if (compacto.Contains("NODISPONIBLE"))
+            {
+                fila[ColumnaTipoMuestreo] = "No disponible por OPS";
+            }
+            else
+            {
+                return new ErrorValidacionDto
+                {
+                    Fila = numeroFila,
+                    Columna = ColumnaTipoMuestreo,
+                    Motivo = "Valor no reconocido en Tipo_Muestreo_norm: no contiene 'antes', 'pre', 'despues', 'post', 'seguimiento' ni 'no disponible'",
+                    ValorEncontrado = valorOriginal
+                };
+            }
+
+            return null;
+        }
+
+        private static string QuitarTildes(string texto)
+        {
+            var descompuesto = texto.Normalize(NormalizationForm.FormD);
+            var sinMarcas = descompuesto.Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark);
+            return new string(sinMarcas.ToArray()).Normalize(NormalizationForm.FormC);
         }
 
         private ErrorValidacionDto? ValidarCelda(string valor, ColumnaConfig config, int numeroFila)

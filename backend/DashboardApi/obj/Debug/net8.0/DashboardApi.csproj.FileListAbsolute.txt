@@ -187,3 +187,11 @@ D:\IA_OCENSA\backend_ocensa\backend\DashboardApi\bin\Debug\net8.0\runtimes\win\l
 D:\IA_OCENSA\backend_ocensa\backend\DashboardApi\bin\Debug\net8.0\runtimes\win\lib\net6.0\System.Runtime.Caching.dll
 D:\IA_OCENSA\backend_ocensa\backend\DashboardApi\bin\Debug\net8.0\runtimes\win\lib\net6.0\System.Security.Cryptography.ProtectedData.dll
 D:\IA_OCENSA\backend_ocensa\backend\DashboardApi\bin\Debug\net8.0\runtimes\win\lib\net6.0\System.Windows.Extensions.dll
+C:\Users\Integridad\AppData\Local\Temp\claude\d--IA-OCENSA-backend-ocensa\b6bd677b-1357-4b43-9018-95b68d87a78d\scratchpad\buildout\appsettings.Development.json
+C:\Users\Integridad\AppData\Local\Temp\claude\d--IA-OCENSA-backend-ocensa\b6bd677b-1357-4b43-9018-95b68d87a78d\scratchpad\buildout\appsettings.json
+C:\Users\Integridad\AppData\Local\Temp\claude\d--IA-OCENSA-backend-ocensa\b6bd677b-1357-4b43-9018-95b68d87a78d\scratchpad\buildout\validacion-config.json
+C:\Users\Integridad\AppData\Local\Temp\claude\d--IA-OCENSA-backend-ocensa\b6bd677b-1357-4b43-9018-95b68d87a78d\scratchpad\buildout\DashboardApi.exe
+C:\Users\Integridad\AppData\Local\Temp\claude\d--IA-OCENSA-backend-ocensa\b6bd677b-1357-4b43-9018-95b68d87a78d\scratchpad\buildout\DashboardApi.deps.json
+C:\Users\Integridad\AppData\Local\Temp\claude\d--IA-OCENSA-backend-ocensa\b6bd677b-1357-4b43-9018-95b68d87a78d\scratchpad\buildout\DashboardApi.runtimeconfig.json
+C:\Users\Integridad\AppData\Local\Temp\claude\d--IA-OCENSA-backend-ocensa\b6bd677b-1357-4b43-9018-95b68d87a78d\scratchpad\buildout\DashboardApi.dll
+C:\Users\Integridad\AppData\Local\Temp\claude\d--IA-OCENSA-backend-ocensa\b6bd677b-1357-4b43-9018-95b68d87a78d\scratchpad\buildout\DashboardApi.pdb
