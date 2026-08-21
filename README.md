@@ -32,10 +32,15 @@ que exista un `dataset release` aprobado y trazable.
 
 ## Configuración local
 
+Para cargar el Excel auditado en un equipo de desarrollo, use el perfil
+`local-analytics` y el procedimiento reproducible de
+[`docs/LOCAL_DEVELOPMENT_QUICKSTART.md`](docs/LOCAL_DEVELOPMENT_QUICKSTART.md).
+Arrancar únicamente con el perfil `http` es válido, pero mantiene la
+persistencia apagada y la carga responderá `503 IMPORT_STORAGE_NOT_READY`.
+
 Use secretos de usuario o variables de entorno. Ejemplo para una instancia local:
 
 ```powershell
-dotnet user-secrets init --project backend/DashboardApi/DashboardApi.csproj
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "<cadena local>" --project backend/DashboardApi/DashboardApi.csproj
 ```
 
