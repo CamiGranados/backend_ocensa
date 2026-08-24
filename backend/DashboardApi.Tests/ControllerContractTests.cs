@@ -45,7 +45,7 @@ public sealed class ControllerContractTests
             ControllerContext = new ControllerContext { HttpContext = context }
         };
 
-        var actionResult = await controller.Preflight(CancellationToken.None);
+        var actionResult = await controller.Preflight();
         var result = Assert.IsType<ObjectResult>(actionResult.Result);
         var response = Assert.IsType<ImportPreflightResponse>(result.Value);
 
@@ -100,7 +100,7 @@ public sealed class ControllerContractTests
             ControllerContext = new ControllerContext { HttpContext = context }
         };
 
-        var actionResult = await controller.Preflight(CancellationToken.None);
+        var actionResult = await controller.Preflight();
         var result = Assert.IsType<ObjectResult>(actionResult.Result);
         var response = Assert.IsType<ImportPreflightResponse>(result.Value);
 
@@ -137,7 +137,7 @@ public sealed class ControllerContractTests
             ControllerContext = new ControllerContext { HttpContext = context }
         };
 
-        var actionResult = await controller.Preflight(CancellationToken.None);
+        var actionResult = await controller.Preflight();
         var result = Assert.IsType<ObjectResult>(actionResult.Result);
         var error = Assert.IsType<ApiErrorResponse>(result.Value);
 
@@ -165,7 +165,7 @@ public sealed class ControllerContractTests
             ControllerContext = new ControllerContext { HttpContext = context }
         };
 
-        var actionResult = await controller.Preflight(CancellationToken.None);
+        var actionResult = await controller.Preflight();
         var result = Assert.IsType<ObjectResult>(actionResult.Result);
         var response = Assert.IsType<ImportPreflightResponse>(result.Value);
 
@@ -200,7 +200,7 @@ public sealed class ControllerContractTests
             ControllerContext = new ControllerContext { HttpContext = context }
         };
 
-        var actionResult = await controller.Preflight(CancellationToken.None);
+        var actionResult = await controller.Preflight();
         var result = Assert.IsType<ObjectResult>(actionResult.Result);
         var response = Assert.IsType<ImportPreflightResponse>(result.Value);
 
