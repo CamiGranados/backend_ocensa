@@ -7,6 +7,7 @@ using DashboardApi.Imports.Development;
 using DashboardApi.Imports.Persistence;
 using DashboardApi.Services;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -25,7 +26,25 @@ builder.Services.Configure<FormOptions>(options =>
 });
 
 builder.Services
-    .AddControllers()
+    .AddControllers(options =>
+    {
+        // ImportBatchesController reads multipart/form-data manually via
+        // IMultipartWorkbookReader. The default form value provider factories
+        // otherwise call Request.ReadFormAsync() while composing value providers
+        // for model binding, which drains the non-seekable request body before
+        // the action runs, regardless of whether any parameter binds from form
+        // data. Removing them keeps the raw body available for that manual read.
+        var formValueProviderFactories = options.ValueProviderFactories
+            .Where(factory =>
+                factory is FormValueProviderFactory
+                    or FormFileValueProviderFactory
+                    or JQueryFormValueProviderFactory)
+            .ToList();
+        foreach (var factory in formValueProviderFactories)
+        {
+            options.ValueProviderFactories.Remove(factory);
+        }
+    })
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
