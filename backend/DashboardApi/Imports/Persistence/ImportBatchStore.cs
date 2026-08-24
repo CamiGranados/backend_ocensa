@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using DashboardApi.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace DashboardApi.Imports.Persistence;
 
@@ -78,6 +79,12 @@ public sealed class EfImportBatchStore : IImportBatchStore
             return await executionStrategy.ExecuteAsync(
                 () => PersistOnceAsync(command, cancellationToken));
         }
+        catch (RetryLimitExceededException exception)
+        {
+            throw StorageUnavailable(
+                "El almacenamiento de importación agotó los reintentos permitidos.",
+                exception);
+        }
         catch (DbUpdateException exception)
         {
             // A concurrent request may win the unique durable-identity insert.
@@ -89,11 +96,26 @@ public sealed class EfImportBatchStore : IImportBatchStore
             {
                 replay = await TryLoadCompleteReplayAsync(command, cancellationToken);
             }
+            catch (ImportStorageConsistencyException replayException)
+            {
+                throw StorageInconsistent(replayException);
+            }
+            catch (RetryLimitExceededException replayException)
+            {
+                throw StorageUnavailable(
+                    "El almacenamiento agotó los reintentos al comprobar el resultado de la transacción.",
+                    replayException);
+            }
             catch (DbException replayException)
             {
-                throw new ImportPersistenceException(
-                    "IMPORT_STORAGE_UNAVAILABLE",
+                throw StorageUnavailable(
                     "El almacenamiento no permitió comprobar el resultado de la transacción.",
+                    replayException);
+            }
+            catch (TimeoutException replayException)
+            {
+                throw StorageUnavailable(
+                    "El almacenamiento no respondió al comprobar el resultado de la transacción.",
                     replayException);
             }
 
@@ -107,17 +129,19 @@ public sealed class EfImportBatchStore : IImportBatchStore
                 "La transacción de importación no pudo completarse.",
                 exception);
         }
+        catch (ImportStorageConsistencyException exception)
+        {
+            throw StorageInconsistent(exception);
+        }
         catch (DbException exception)
         {
-            throw new ImportPersistenceException(
-                "IMPORT_STORAGE_UNAVAILABLE",
+            throw StorageUnavailable(
                 "El almacenamiento de importación no está disponible.",
                 exception);
         }
         catch (TimeoutException exception)
         {
-            throw new ImportPersistenceException(
-                "IMPORT_STORAGE_UNAVAILABLE",
+            throw StorageUnavailable(
                 "El almacenamiento de importación no respondió dentro del tiempo permitido.",
                 exception);
         }
@@ -332,8 +356,8 @@ public sealed class EfImportBatchStore : IImportBatchStore
 
         if (!consistent)
         {
-            throw new InvalidOperationException(
-                "IMPORT_STORAGE_INCONSISTENT: existe una identidad durable incompleta o con metadatos divergentes.");
+            throw new ImportStorageConsistencyException(
+                "Existe una identidad durable incompleta o con metadatos divergentes.");
         }
 
         return new ImportPersistenceResult(
@@ -453,8 +477,36 @@ public sealed class EfImportBatchStore : IImportBatchStore
             return Array.Empty<string>();
         }
 
-        return JsonSerializer.Deserialize<string[]>(value, StorageJsonOptions)
-            ?? Array.Empty<string>();
+        try
+        {
+            return JsonSerializer.Deserialize<string[]>(value, StorageJsonOptions)
+                ?? Array.Empty<string>();
+        }
+        catch (JsonException exception)
+        {
+            throw new ImportStorageConsistencyException(
+                "Los motivos de bloqueo del release no contienen JSON válido.",
+                exception);
+        }
+    }
+
+    private static ImportPersistenceException StorageInconsistent(Exception exception) =>
+        new(
+            "IMPORT_STORAGE_INCONSISTENT",
+            "El almacenamiento contiene una identidad durable incompleta o con metadatos inconsistentes.",
+            exception);
+
+    private static ImportPersistenceException StorageUnavailable(
+        string message,
+        Exception exception) =>
+        new("IMPORT_STORAGE_UNAVAILABLE", message, exception);
+
+    private sealed class ImportStorageConsistencyException : Exception
+    {
+        public ImportStorageConsistencyException(string message, Exception? innerException = null)
+            : base(message, innerException)
+        {
+        }
     }
 
     private static void EnsureSha256(string value, string parameterName)

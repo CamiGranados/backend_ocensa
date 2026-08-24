@@ -1,6 +1,7 @@
 using DashboardApi.Data;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 
@@ -30,6 +31,16 @@ internal sealed class DevelopmentAnalyticsTestDatabase : IAsyncDisposable
         var context = new AppDbContext(options);
         await context.Database.EnsureCreatedAsync();
         return new DevelopmentAnalyticsTestDatabase(connection, context);
+    }
+
+    public AppDbContext CreateContext(params IInterceptor[] interceptors)
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(Connection)
+            .EnableSensitiveDataLogging(false)
+            .AddInterceptors(interceptors)
+            .Options;
+        return new AppDbContext(options);
     }
 
     public async ValueTask DisposeAsync()

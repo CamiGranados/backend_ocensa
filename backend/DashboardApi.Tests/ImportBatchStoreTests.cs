@@ -1,9 +1,12 @@
+using System.Data.Common;
 using System.Security.Cryptography;
 using DashboardApi.Data;
 using DashboardApi.Imports;
 using DashboardApi.Imports.Persistence;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace DashboardApi.Tests;
 
@@ -148,6 +151,58 @@ public sealed class ImportBatchStoreTests
     }
 
     [Fact]
+    public async Task Malformed_release_json_is_reported_as_storage_inconsistent()
+    {
+        await using var database = await SqliteTestDatabase.CreateAsync();
+        var command = CreateCommand(TestWorkbookFactory.Create("Datos"));
+        var store = CreateStore(database.Context);
+        await store.PersistAsync(command, CancellationToken.None);
+        var release = await database.Context.DatasetReleases.SingleAsync();
+        release.BlockedReasonsJson = "{";
+        await database.Context.SaveChangesAsync();
+        database.Context.ChangeTracker.Clear();
+
+        var exception = await Assert.ThrowsAsync<ImportPersistenceException>(
+            () => store.PersistAsync(command, CancellationToken.None));
+
+        Assert.Equal("IMPORT_STORAGE_INCONSISTENT", exception.Code);
+        Assert.Contains("inconsistentes", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Divergent_durable_counts_are_reported_as_storage_inconsistent()
+    {
+        await using var database = await SqliteTestDatabase.CreateAsync();
+        var command = CreateCommand(TestWorkbookFactory.Create("Datos"));
+        var store = CreateStore(database.Context);
+        await store.PersistAsync(command, CancellationToken.None);
+        var batch = await database.Context.ImportBatches.SingleAsync();
+        batch.SheetCount++;
+        await database.Context.SaveChangesAsync();
+        database.Context.ChangeTracker.Clear();
+
+        var exception = await Assert.ThrowsAsync<ImportPersistenceException>(
+            () => store.PersistAsync(command, CancellationToken.None));
+
+        Assert.Equal("IMPORT_STORAGE_INCONSISTENT", exception.Code);
+    }
+
+    [Fact]
+    public async Task Exhausted_execution_strategy_is_reported_as_storage_unavailable()
+    {
+        await using var database = await SqliteTestDatabase.CreateAsync(
+            new RetryLimitReaderInterceptor());
+        var command = CreateCommand(TestWorkbookFactory.Create("Datos"));
+        var store = CreateStore(database.Context);
+
+        var exception = await Assert.ThrowsAsync<ImportPersistenceException>(
+            () => store.PersistAsync(command, CancellationToken.None));
+
+        Assert.Equal("IMPORT_STORAGE_UNAVAILABLE", exception.Code);
+        Assert.IsType<RetryLimitExceededException>(exception.InnerException);
+    }
+
+    [Fact]
     public void Lineage_fingerprint_changes_when_a_chart_relevant_source_field_changes()
     {
         var classifier = new RawCellClassifier();
@@ -232,6 +287,14 @@ public sealed class ImportBatchStoreTests
         return new ImportPersistenceCommand(batch, release, Array.Empty<string>());
     }
 
+    private static EfImportBatchStore CreateStore(AppDbContext context)
+    {
+        var classifier = new RawCellClassifier();
+        return new EfImportBatchStore(
+            context,
+            new RawCellLineageGuard(classifier));
+    }
+
     private sealed class SqliteTestDatabase : IAsyncDisposable
     {
         private SqliteTestDatabase(SqliteConnection connection, AppDbContext context)
@@ -243,17 +306,30 @@ public sealed class ImportBatchStoreTests
         private SqliteConnection Connection { get; }
         public AppDbContext Context { get; }
 
-        public static async Task<SqliteTestDatabase> CreateAsync()
+        public static async Task<SqliteTestDatabase> CreateAsync(
+            params IInterceptor[] runtimeInterceptors)
         {
             var connection = new SqliteConnection("Data Source=:memory:");
             await connection.OpenAsync();
-            var options = new DbContextOptionsBuilder<AppDbContext>()
+            var setupOptions = new DbContextOptionsBuilder<AppDbContext>()
                 .UseSqlite(connection)
                 .EnableSensitiveDataLogging(false)
                 .Options;
-            var context = new AppDbContext(options);
-            await context.Database.EnsureCreatedAsync();
-            return new SqliteTestDatabase(connection, context);
+            var setupContext = new AppDbContext(setupOptions);
+            await setupContext.Database.EnsureCreatedAsync();
+
+            if (runtimeInterceptors.Length == 0)
+            {
+                return new SqliteTestDatabase(connection, setupContext);
+            }
+
+            await setupContext.DisposeAsync();
+            var runtimeOptions = new DbContextOptionsBuilder<AppDbContext>()
+                .UseSqlite(connection)
+                .EnableSensitiveDataLogging(false)
+                .AddInterceptors(runtimeInterceptors)
+                .Options;
+            return new SqliteTestDatabase(connection, new AppDbContext(runtimeOptions));
         }
 
         public async ValueTask DisposeAsync()
@@ -261,5 +337,15 @@ public sealed class ImportBatchStoreTests
             await Context.DisposeAsync();
             await Connection.DisposeAsync();
         }
+    }
+
+    private sealed class RetryLimitReaderInterceptor : DbCommandInterceptor
+    {
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default) =>
+            throw new RetryLimitExceededException("Simulated exhausted storage retries.");
     }
 }

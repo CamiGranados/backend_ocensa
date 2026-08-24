@@ -4,6 +4,7 @@ using System.Text.Json;
 using DashboardApi.Data;
 using DashboardApi.Imports.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
@@ -106,19 +107,18 @@ public sealed class DevelopmentReleaseApprovalService : IDevelopmentReleaseAppro
             return await strategy.ExecuteAsync(
                 () => ApproveOnceAsync(command, persistenceResult, cancellationToken));
         }
+        catch (RetryLimitExceededException exception)
+        {
+            throw StorageUnavailable(
+                "El almacenamiento agotó los reintentos al aplicar la aprobación local.",
+                exception);
+        }
         catch (DbUpdateConcurrencyException exception)
         {
-            _dbContext.ChangeTracker.Clear();
-            var replay = await TryLoadApprovedReplayAsync(persistenceResult, cancellationToken);
-            if (replay is not null)
-            {
-                return replay;
-            }
-
-            throw new DevelopmentAnalyticsGateException(
-                "DEVELOPMENT_RELEASE_APPROVAL_CONFLICT",
-                "El release cambió durante la aprobación local y no quedó en un estado idempotente seguro.",
-                exception);
+            return await ResolveConcurrencyAsync(
+                persistenceResult,
+                exception,
+                cancellationToken);
         }
         catch (DbUpdateException exception)
         {
@@ -129,18 +129,58 @@ public sealed class DevelopmentReleaseApprovalService : IDevelopmentReleaseAppro
         }
         catch (DbException exception)
         {
-            throw new DevelopmentAnalyticsGateException(
-                "DEVELOPMENT_RELEASE_STORAGE_UNAVAILABLE",
+            throw StorageUnavailable(
                 "No fue posible comprobar o aplicar la aprobación local del release.",
                 exception);
         }
         catch (TimeoutException exception)
         {
-            throw new DevelopmentAnalyticsGateException(
-                "DEVELOPMENT_RELEASE_STORAGE_UNAVAILABLE",
+            throw StorageUnavailable(
                 "El almacenamiento no respondió al aplicar la aprobación local.",
                 exception);
         }
+    }
+
+    private async Task<DevelopmentReleaseApprovalDecision> ResolveConcurrencyAsync(
+        ImportPersistenceResult persistenceResult,
+        DbUpdateConcurrencyException concurrencyException,
+        CancellationToken cancellationToken)
+    {
+        _dbContext.ChangeTracker.Clear();
+
+        DevelopmentReleaseApprovalDecision? replay;
+        try
+        {
+            replay = await TryLoadApprovedReplayAsync(persistenceResult, cancellationToken);
+        }
+        catch (RetryLimitExceededException replayException)
+        {
+            throw StorageUnavailable(
+                "El almacenamiento agotó los reintentos al comprobar la aprobación local.",
+                replayException);
+        }
+        catch (DbException replayException)
+        {
+            throw StorageUnavailable(
+                "No fue posible comprobar el resultado de la aprobación local.",
+                replayException);
+        }
+        catch (TimeoutException replayException)
+        {
+            throw StorageUnavailable(
+                "El almacenamiento no respondió al comprobar la aprobación local.",
+                replayException);
+        }
+
+        if (replay is not null)
+        {
+            return replay;
+        }
+
+        throw new DevelopmentAnalyticsGateException(
+            "DEVELOPMENT_RELEASE_APPROVAL_CONFLICT",
+            "El release cambió durante la aprobación local y no quedó en un estado idempotente seguro.",
+            concurrencyException);
     }
 
     private async Task<DevelopmentReleaseApprovalDecision> ApproveOnceAsync(
@@ -371,4 +411,9 @@ public sealed class DevelopmentReleaseApprovalService : IDevelopmentReleaseAppro
                 ApprovedAtUtc = release.ApprovedAtUtc,
                 ReleaseBlockedReasons = Array.Empty<string>()
             });
+
+    private static DevelopmentAnalyticsGateException StorageUnavailable(
+        string message,
+        Exception exception) =>
+        new("DEVELOPMENT_RELEASE_STORAGE_UNAVAILABLE", message, exception);
 }

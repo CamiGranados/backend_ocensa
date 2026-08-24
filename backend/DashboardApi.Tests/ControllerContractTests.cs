@@ -4,6 +4,7 @@ using DashboardApi.Imports.Development;
 using DashboardApi.Imports.Persistence;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace DashboardApi.Tests;
@@ -39,7 +40,7 @@ public sealed class ControllerContractTests
             Options.Create(new ImportFeatureOptions()),
             Options.Create(new ImportContractOptions()),
             TimeProvider.System);
-        var controller = new ImportBatchesController(service)
+        var controller = CreateImportController(service)
         {
             ControllerContext = new ControllerContext { HttpContext = context }
         };
@@ -94,7 +95,7 @@ public sealed class ControllerContractTests
             Options.Create(new ImportFeatureOptions { ImportPersistenceEnabled = true }),
             Options.Create(new ImportContractOptions()),
             TimeProvider.System);
-        var controller = new ImportBatchesController(service)
+        var controller = CreateImportController(service)
         {
             ControllerContext = new ControllerContext { HttpContext = context }
         };
@@ -131,7 +132,7 @@ public sealed class ControllerContractTests
             Options.Create(new ImportFeatureOptions { ImportPersistenceEnabled = true }),
             Options.Create(new ImportContractOptions()),
             TimeProvider.System);
-        var controller = new ImportBatchesController(service)
+        var controller = CreateImportController(service)
         {
             ControllerContext = new ControllerContext { HttpContext = context }
         };
@@ -159,7 +160,7 @@ public sealed class ControllerContractTests
             Options.Create(new ImportFeatureOptions { ImportPersistenceEnabled = true }),
             Options.Create(new ImportContractOptions()),
             TimeProvider.System);
-        var controller = new ImportBatchesController(service)
+        var controller = CreateImportController(service)
         {
             ControllerContext = new ControllerContext { HttpContext = context }
         };
@@ -194,7 +195,7 @@ public sealed class ControllerContractTests
             Options.Create(new ImportFeatureOptions { ImportPersistenceEnabled = true }),
             Options.Create(new ImportContractOptions()),
             TimeProvider.System);
-        var controller = new ImportBatchesController(service)
+        var controller = CreateImportController(service)
         {
             ControllerContext = new ControllerContext { HttpContext = context }
         };
@@ -240,6 +241,36 @@ public sealed class ControllerContractTests
         Assert.Contains("DATASET_PUBLICATION_LOCK", exception.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Unexpected_import_failure_returns_safe_traceable_500()
+    {
+        var context = new DefaultHttpContext();
+        context.TraceIdentifier = "trace-contract-500";
+        var controller = CreateImportController(new ThrowingImportPreflightService())
+        {
+            ControllerContext = new ControllerContext { HttpContext = context }
+        };
+
+        var actionResult = await controller.Preflight(CancellationToken.None);
+        var result = Assert.IsType<ObjectResult>(actionResult.Result);
+        var error = Assert.IsType<ApiErrorResponse>(result.Value);
+
+        Assert.Equal(StatusCodes.Status500InternalServerError, result.StatusCode);
+        Assert.Equal("IMPORT_UNEXPECTED_ERROR", error.Code);
+        Assert.DoesNotContain("sensitive diagnostic", error.Message, StringComparison.Ordinal);
+        var details = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(error.Details);
+        Assert.Equal("trace-contract-500", details["traceId"]);
+        Assert.Single(details);
+    }
+
+    private static ImportBatchesController CreateImportController(
+        IImportPreflightService service)
+    {
+        return new ImportBatchesController(
+            service,
+            NullLogger<ImportBatchesController>.Instance);
+    }
+
     private static async Task<ImportPreflightResponse> RunPreflightAsync(byte[] workbook)
     {
         var context = await TestWorkbookFactory.CreateMultipartRequestAsync(workbook);
@@ -265,6 +296,16 @@ public sealed class ControllerContractTests
             CancellationToken cancellationToken)
         {
             throw new InvalidOperationException("La persistencia no debía invocarse con el flag apagado.");
+        }
+    }
+
+    private sealed class ThrowingImportPreflightService : IImportPreflightService
+    {
+        public Task<ImportPreflightResult> PreflightAsync(
+            HttpRequest request,
+            CancellationToken cancellationToken)
+        {
+            throw new InvalidOperationException("sensitive diagnostic");
         }
     }
 

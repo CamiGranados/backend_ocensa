@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Net;
 using System.Text.Json;
 using DashboardApi.Controllers;
@@ -7,6 +8,8 @@ using DashboardApi.Imports.Persistence;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -295,6 +298,46 @@ public sealed class DevelopmentAnalyticsGateTests
         Assert.Equal(1, await database.Context.DatasetReleases.CountAsync());
     }
 
+    [Fact]
+    public async Task Exhausted_execution_strategy_during_approval_is_reported_as_storage_unavailable()
+    {
+        await using var database = await DevelopmentAnalyticsTestDatabase.CreateAsync();
+        var command = ImportBatchStoreTests.CreateCommand(TestWorkbookFactory.Create("Datos"));
+        var persistence = await CreateStore(database).PersistAsync(
+            command,
+            CancellationToken.None);
+        await using var approvalContext = database.CreateContext(
+            new RetryLimitReaderInterceptor());
+        var service = CreateApprovalService(approvalContext, command);
+
+        var exception = await Assert.ThrowsAsync<DevelopmentAnalyticsGateException>(() =>
+            service.ApproveIfEligibleAsync(command, persistence, CancellationToken.None));
+
+        Assert.Equal("DEVELOPMENT_RELEASE_STORAGE_UNAVAILABLE", exception.Code);
+        Assert.IsType<RetryLimitExceededException>(exception.InnerException);
+    }
+
+    [Fact]
+    public async Task Failed_query_while_resolving_concurrency_is_reported_as_storage_unavailable()
+    {
+        await using var database = await DevelopmentAnalyticsTestDatabase.CreateAsync();
+        var command = ImportBatchStoreTests.CreateCommand(TestWorkbookFactory.Create("Datos"));
+        var persistence = await CreateStore(database).PersistAsync(
+            command,
+            CancellationToken.None);
+        var replayFailure = new ReplayFailureState();
+        await using var approvalContext = database.CreateContext(
+            new ForceConcurrencyInterceptor(replayFailure),
+            new FailReplayQueryInterceptor(replayFailure));
+        var service = CreateApprovalService(approvalContext, command);
+
+        var exception = await Assert.ThrowsAsync<DevelopmentAnalyticsGateException>(() =>
+            service.ApproveIfEligibleAsync(command, persistence, CancellationToken.None));
+
+        Assert.Equal("DEVELOPMENT_RELEASE_STORAGE_UNAVAILABLE", exception.Code);
+        Assert.IsType<TestStorageException>(exception.InnerException);
+    }
+
     private static EfImportBatchStore CreateStore(
         DevelopmentAnalyticsTestDatabase database)
     {
@@ -307,8 +350,13 @@ public sealed class DevelopmentAnalyticsGateTests
     private static DevelopmentReleaseApprovalService CreateApprovalService(
         DevelopmentAnalyticsTestDatabase database,
         ImportPersistenceCommand command) =>
+        CreateApprovalService(database.Context, command);
+
+    private static DevelopmentReleaseApprovalService CreateApprovalService(
+        DashboardApi.Data.AppDbContext context,
+        ImportPersistenceCommand command) =>
         new(
-            database.Context,
+            context,
             Options.Create(EnabledFeatures()),
             Options.Create(ConfigurationFor(command)),
             new TestHostEnvironment("Development"),
@@ -347,6 +395,76 @@ public sealed class DevelopmentAnalyticsGateTests
             ],
             AllowedChartIds = ["H08", "H11", "H10-COR-COUPON.V1"]
         };
+
+    private sealed class RetryLimitReaderInterceptor : DbCommandInterceptor
+    {
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default) =>
+            throw new RetryLimitExceededException("Simulated exhausted approval retries.");
+    }
+
+    private sealed class ReplayFailureState
+    {
+        public bool FailReplayQuery { get; set; }
+    }
+
+    private sealed class ForceConcurrencyInterceptor : SaveChangesInterceptor
+    {
+        private readonly ReplayFailureState _state;
+
+        public ForceConcurrencyInterceptor(ReplayFailureState state)
+        {
+            _state = state;
+        }
+
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData,
+            InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            _state.FailReplayQuery = true;
+            throw new DbUpdateConcurrencyException("Simulated approval conflict.");
+        }
+    }
+
+    private sealed class FailReplayQueryInterceptor : DbCommandInterceptor
+    {
+        private readonly ReplayFailureState _state;
+
+        public FailReplayQueryInterceptor(ReplayFailureState state)
+        {
+            _state = state;
+        }
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            if (_state.FailReplayQuery)
+            {
+                throw new TestStorageException("Simulated replay query failure.");
+            }
+
+            return base.ReaderExecutingAsync(
+                command,
+                eventData,
+                result,
+                cancellationToken);
+        }
+    }
+
+    private sealed class TestStorageException : DbException
+    {
+        public TestStorageException(string message)
+            : base(message)
+        {
+        }
+    }
 }
 
 internal static class DevelopmentAnalyticsGateTestExtensions
