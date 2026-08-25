@@ -21,6 +21,7 @@ public sealed class ImportBatchesController : ControllerBase
     [HttpPost]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(ImportLimits.MaxMultipartBodyBytes)]
+    [DisableFormValueModelBinding]
     [ProducesResponseType<ImportPreflightResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ImportPreflightResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ImportPreflightResponse>(StatusCodes.Status503ServiceUnavailable)]

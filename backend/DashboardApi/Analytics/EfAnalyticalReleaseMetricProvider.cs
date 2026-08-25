@@ -253,18 +253,20 @@ public sealed class EfAnalyticalReleaseMetricProvider :
             cancellationToken);
         var canonicalDatesByRow = dateSelection.Valid
             .ToDictionary(item => item.Cell.SourceRowNumber, item => item.Date);
-        var filteredRowNumbers = canonicalDatesByRow.Keys.ToArray();
+        var filteredRowNumbers = new HashSet<int>(canonicalDatesByRow.Keys);
         var selectedColumns = sheet.HasSourceColumn
             ? CoreColumns.Select(column => column.Number).Append(SourceColumn).ToArray()
             : CoreColumns.Select(column => column.Number).ToArray();
-        var selectedCells = await _dbContext.RawCells
+        var selectedCells = (await _dbContext.RawCells
             .AsNoTracking()
             .Where(cell => cell.WorkbookSheetId == sheet.Id
-                && filteredRowNumbers.Contains(cell.SourceRowNumber)
+                && cell.SourceRowNumber > sheet.HeaderRowNumber
                 && selectedColumns.Contains(cell.SourceColumnNumber))
             .OrderBy(cell => cell.SourceRowNumber)
             .ThenBy(cell => cell.SourceColumnNumber)
-            .ToArrayAsync(cancellationToken);
+            .ToArrayAsync(cancellationToken))
+            .Where(cell => filteredRowNumbers.Contains(cell.SourceRowNumber))
+            .ToArray();
         var expectedCellCountPerRow = selectedColumns.Length;
         var groupedRows = selectedCells
             .GroupBy(cell => cell.SourceRowNumber)
@@ -419,16 +421,18 @@ public sealed class EfAnalyticalReleaseMetricProvider :
                 cancellationToken);
             var datesByRow = dateSelection.Valid
                 .ToDictionary(item => item.Cell.SourceRowNumber, item => item.Date);
-            var rowNumbers = datesByRow.Keys.ToArray();
-            var optionCells = await _dbContext.RawCells
+            var rowNumbers = new HashSet<int>(datesByRow.Keys);
+            var optionCells = (await _dbContext.RawCells
                 .AsNoTracking()
                 .Where(cell => cell.WorkbookSheetId == sheet.Id
-                    && rowNumbers.Contains(cell.SourceRowNumber)
+                    && cell.SourceRowNumber > sheet.HeaderRowNumber
                     && (cell.SourceColumnNumber == TankColumn
                         || cell.SourceColumnNumber == CollectionDateColumn))
                 .OrderBy(cell => cell.SourceRowNumber)
                 .ThenBy(cell => cell.SourceColumnNumber)
-                .ToArrayAsync(cancellationToken);
+                .ToArrayAsync(cancellationToken))
+                .Where(cell => rowNumbers.Contains(cell.SourceRowNumber))
+                .ToArray();
             var groups = optionCells.GroupBy(cell => cell.SourceRowNumber).ToArray();
             var tanks = new HashSet<string>(StringComparer.Ordinal);
             var years = new HashSet<int>();

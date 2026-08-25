@@ -42,6 +42,29 @@
         "DevelopmentAnalytics__AllowedChartIds__2": "H10-COR-COUPON.V1"
       }
     },
+    "local-analytics-df-unf-cicch-5": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "applicationUrl": "http://localhost:5285",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "Features__ImportPersistenceEnabled": "true",
+        "Features__DatasetPublicationEnabled": "false",
+        "Features__DevelopmentAnalyticsReadEnabled": "true",
+        "DevelopmentAnalytics__ExpectedFileSha256": "b9037f6bf35a6bde23344c167f5da93a04928383e1cdea3536fde56fd1ee590b",
+        "DevelopmentAnalytics__ExpectedReleaseIdentity": "ecae6b62a975f48987fca609e145832de23fef87bbc760b46956ff562beeb29b",
+        "DevelopmentAnalytics__SchemaVersion": "thps-raw-v1",
+        "DevelopmentAnalytics__ClassifierVersion": "raw-classifier-v2",
+        "DevelopmentAnalytics__AllowedMetricIds__0": "THPS.DATA.COVERAGE.V1",
+        "DevelopmentAnalytics__AllowedMetricIds__1": "THPS.MICRO.GROUP.CONTROL.V1",
+        "DevelopmentAnalytics__AllowedMetricIds__2": "THPS.CORROSION.COUPON.MPY.V1",
+        "DevelopmentAnalytics__AllowedChartIds__0": "H08",
+        "DevelopmentAnalytics__AllowedChartIds__1": "H11",
+        "DevelopmentAnalytics__AllowedChartIds__2": "H10-COR-COUPON.V1"
+      }
+    },
     "https": {
       "commandName": "Project",
       "dotnetRunMessages": true,

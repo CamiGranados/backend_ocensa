@@ -108,6 +108,19 @@ public sealed class MultipartWorkbookReader : IMultipartWorkbookReader
                 "El cuerpo multipart está truncado o no cumple el formato esperado.",
                 innerException: exception);
         }
+        catch (IOException exception)
+        {
+            if (incomingWorkbook is not null)
+            {
+                await incomingWorkbook.DisposeAsync();
+            }
+
+            throw new ImportPreflightException(
+                StatusCodes.Status400BadRequest,
+                "INCOMPLETE_MULTIPART_BODY",
+                "La carga del archivo se interrumpió antes de completarse (conexión cerrada o cuerpo truncado). Intente nuevamente.",
+                innerException: exception);
+        }
         catch
         {
             if (incomingWorkbook is not null)

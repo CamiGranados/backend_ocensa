@@ -144,6 +144,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
                 maxRetryCount: 3,
                 maxRetryDelay: TimeSpan.FromSeconds(5),
                 errorNumbersToAdd: null);
+            sql.UseCompatibilityLevel(120);
         });
     }
 });
