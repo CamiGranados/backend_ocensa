@@ -12,12 +12,18 @@ public class TanksController : ControllerBase
     private readonly AppDbContext _context;
     private readonly IThpsReviewService _thpsReviewService;
     private readonly IMicroService _microService;
+    private readonly IPhysicalChemistryService _physicalChemistryService;
 
-    public TanksController(AppDbContext context, IThpsReviewService thpsReviewService, IMicroService microService)
+    public TanksController(
+        AppDbContext context,
+        IThpsReviewService thpsReviewService,
+        IMicroService microService,
+        IPhysicalChemistryService physicalChemistryService)
     {
         _context = context;
         _thpsReviewService = thpsReviewService;
         _microService = microService;
+        _physicalChemistryService = physicalChemistryService;
     }
 
     // GET: api/tanks
@@ -126,6 +132,16 @@ public class TanksController : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await _microService.GetMicroAsync(request, cancellationToken);
+        return Ok(result);
+    }
+
+    // POST: api/tanks/physical-chemistry
+    [HttpPost("physical-chemistry")]
+    public async Task<ActionResult<DashboardApi.DTOs.PhysicalChemistryResponseDto>> GetPhysicalChemistry(
+        [FromBody] DashboardApi.DTOs.PhysicalChemistryRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _physicalChemistryService.GetPhysicalChemistryAsync(request, cancellationToken);
         return Ok(result);
     }
 }
