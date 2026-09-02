@@ -21,4 +21,10 @@ public class PhysicalChemistryRecordDto
     public decimal? Calcium { get; set; }
     public decimal? GeneralCorrosionRate { get; set; }
     public decimal? MaximumStingSpeed { get; set; }
+
+    // Media movil (rolling mean, ventana 4 / paso 1) de General_Corrosion_Rate_ppm
+    // y Maximum_Sting_Speed_ppm, calculada solo sobre los registros con dato.
+    // Nulo en los registros sin dato en la variable.
+    public decimal? CorrosionRateMean { get; set; }
+    public decimal? MaximumStingMean { get; set; }
 }

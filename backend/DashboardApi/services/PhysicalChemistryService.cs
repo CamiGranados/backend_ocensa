@@ -62,9 +62,59 @@ public class PhysicalChemistryService : IPhysicalChemistryService
             })
             .ToListAsync(cancellationToken);
 
+        ApplyRollingMean(items);
+
         return new PhysicalChemistryResponseDto
         {
             Data = items
         };
+    }
+
+    // Tamano maximo de la ventana de la media movil (paso 1).
+    private const int RollingWindowSize = 5;
+
+    // Media movil (rolling mean / moving average) con ventana deslizante de
+    // tamano 4 y paso 1 para General_Corrosion_Rate_ppm y Maximum_Sting_Speed_ppm.
+    private static void ApplyRollingMean(List<PhysicalChemistryRecordDto> items)
+    {
+        RollingMeanOverNonNull(
+            items,
+            r => r.GeneralCorrosionRate,
+            (r, mean) => r.CorrosionRateMean = mean);
+
+        RollingMeanOverNonNull(
+            items,
+            r => r.MaximumStingSpeed,
+            (r, mean) => r.MaximumStingMean = mean);
+    }
+
+    // Estas dos variables se miden con poca frecuencia, por lo que casi nunca hay
+    // registros consecutivos con dato. Se condensa la serie a los registros que
+    // si tienen valor y se calcula la media movil sobre esos pocos, sin perder
+    // datos al arrancar: el primer valor se deja tal cual, el segundo se promedia
+    // con el primero, el tercero con los dos anteriores, y a partir del cuarto ya
+    // se usa la ventana completa de 4. El promedio se asigna al registro mas
+    // reciente de la ventana (alineado a la derecha); los registros sin dato
+    // quedan sin media.
+    private static void RollingMeanOverNonNull(
+        List<PhysicalChemistryRecordDto> items,
+        Func<PhysicalChemistryRecordDto, decimal?> selector,
+        Action<PhysicalChemistryRecordDto, decimal?> setter)
+    {
+        var window = new Queue<decimal>(RollingWindowSize);
+
+        // items viene ordenado de forma descendente por fecha; se recorre de
+        // atras hacia adelante para avanzar en orden cronologico.
+        for (var i = items.Count - 1; i >= 0; i--)
+        {
+            if (selector(items[i]) is not { } value)
+                continue;
+
+            if (window.Count == RollingWindowSize)
+                window.Dequeue();
+            window.Enqueue(value);
+
+            setter(items[i], window.Sum() / window.Count);
+        }
     }
 }

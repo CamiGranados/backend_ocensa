@@ -108,7 +108,7 @@ public class TanksController : ControllerBase
 
     // POST: api/tanks/summary
     [HttpPost("summary")]
-    public async Task<ActionResult<DashboardApi.DTOs.MeasurementFiltersResponseDto>> GetSummary([FromBody] MeasurementsSummaryRequest request)
+    public async Task<ActionResult<DashboardApi.DTOs.DashboardResponseDto>> GetSummary([FromBody] MeasurementsSummaryRequest request)
     {
         var service = new OverviewService(_context);
         var summary = await service.GetSummaryAsync(request);
