@@ -43,6 +43,17 @@ public class FreeWaterDto
     // Indica qué tan estable es esa diferencia a lo largo de los meses.
     public decimal? StdDeviation { get; set; }
 
+    // Desviación absoluta media: promedio de |Reported_FWV - Calculated_FWV| sobre
+    // todas las mediciones del rango de fechas (un "caso" = una medición).
+    public decimal? MeanAbsoluteDeviation { get; set; }
+
+    // Fuera de tolerancia: % de mediciones del rango con |Reported_FWV - Calculated_FWV| > 300 BBL.
+    public decimal? OutOfTolerancePercent { get; set; }
+
+    // Agua incremental acumulada: suma corrida (total) de Increased_FWV sobre todas
+    // las mediciones del rango de fechas.
+    public decimal? AccumulatedIncreasedWater { get; set; }
+
     // Detalle por mes usado para el cálculo.
     public List<FreeWaterMonthDto> Months { get; set; } = new();
 
@@ -58,16 +69,27 @@ public class FreeWaterMonthDto
     public decimal Deviation { get; set; }
 }
 
-// Resumen de dosis: compara Dosis programada vs Dosis real inyectada mes a mes.
+// Resumen de dosis: el cumplimiento se calcula sobre VOLÚMENES del periodo (Volumen
+// programado vs Volumen real); no se acumulan ppm porque son concentración. La gráfica
+// mensual sí se mantiene en ppm (Dosis programada vs Dosis real inyectada).
 public class DoseDto
 {
-    // Media de las desviaciones mensuales (mediaProgramada - mediaInyectada).
-    public decimal? MeanDeviation { get; set; }
+    // Cumplimiento global: (Σ Volumen real / Σ Volumen programado) × 100 sobre los registros del periodo.
+    public decimal? GlobalCompliancePercent { get; set; }
 
-    // Desviación estándar poblacional de las desviaciones mensuales.
-    public decimal? StdDeviation { get; set; }
+    // Desviación: ((Σ Volumen real - Σ Volumen programado) / Σ Volumen programado) × 100
+    // (es la misma cifra que el cumplimiento menos 100).
+    public decimal? DeviationPercent { get; set; }
 
-    // Detalle por mes usado para el cálculo.
+    // Fuera de tolerancia: número de registros cuya desviación individual
+    // |((real - prog) / prog) × 100| supera el 20%, sobre EvaluatedCount registros evaluados ("N de M").
+    public int OutOfToleranceCount { get; set; }
+    public int EvaluatedCount { get; set; }
+
+    // Volumen real acumulado inyectado en el periodo (Σ Volumen real).
+    public decimal? AccumulatedActualVolume { get; set; }
+
+    // Detalle por mes para la gráfica, en ppm (dosis programada vs inyectada).
     public List<DoseMonthDto> Months { get; set; } = new();
 
     public static DoseDto Empty => new();

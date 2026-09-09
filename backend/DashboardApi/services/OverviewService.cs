@@ -55,8 +55,11 @@ public class OverviewService : IOverviewService
                 m.BAnT_planct,
                 m.Reported_FWV,
                 m.Calculated_FWV,
+                m.Increased_FWV,
                 m.Scheduled_Dose,
                 m.Actual_Injected_Dose,
+                m.Programmed_volume,
+                m.Actual_volume,
                 m.Standard_Sampling_Type,
                 m.Category_Nace,
                 m.Level_Alarm
@@ -85,12 +88,42 @@ public class OverviewService : IOverviewService
         var freeWaterMonths = MonthlyDeviation(
             filas, f => f.Date, f => f.Reported_FWV, f => f.Calculated_FWV);
 
-        var freeWater = freeWaterMonths.Count == 0
+        // Métricas sobre todas las mediciones del rango (no agregadas por mes): un "caso" = una medición.
+        // Diferencias (Reported_FWV - Calculated_FWV) de las mediciones con ambos valores.
+        var freeWaterDiffs = filas
+            .Where(f => f.Reported_FWV.HasValue && f.Calculated_FWV.HasValue)
+            .Select(f => f.Reported_FWV!.Value - f.Calculated_FWV!.Value)
+            .ToList();
+
+        // Desviación absoluta media: promedio de |Reported_FWV - Calculated_FWV|.
+        decimal? freeWaterMad = freeWaterDiffs.Count == 0
+            ? null
+            : Math.Round(freeWaterDiffs.Average(d => Math.Abs(d)), 2);
+
+        // Fuera de tolerancia: % de mediciones con |Reported_FWV - Calculated_FWV| > 300 BBL.
+        decimal? freeWaterOutOfTolerance = freeWaterDiffs.Count == 0
+            ? null
+            : Math.Round(
+                freeWaterDiffs.Count(d => Math.Abs(d) > FreeWaterToleranceBbl) * 100m / freeWaterDiffs.Count, 2);
+
+        // Agua incremental acumulada: suma corrida (total) de Increased_FWV.
+        var increasedFwvValues = filas
+            .Where(f => f.Increased_FWV.HasValue)
+            .Select(f => f.Increased_FWV!.Value)
+            .ToList();
+        decimal? accumulatedIncreasedWater = increasedFwvValues.Count == 0
+            ? null
+            : Math.Round(increasedFwvValues.Sum(), 2);
+
+        var freeWater = freeWaterMonths.Count == 0 && freeWaterDiffs.Count == 0 && increasedFwvValues.Count == 0
             ? FreeWaterDto.Empty
             : new FreeWaterDto
             {
-                MeanDeviation = MeanDeviation(freeWaterMonths),
-                StdDeviation = StdDeviation(freeWaterMonths),
+                MeanDeviation = freeWaterMonths.Count == 0 ? null : MeanDeviation(freeWaterMonths),
+                StdDeviation = freeWaterMonths.Count == 0 ? null : StdDeviation(freeWaterMonths),
+                MeanAbsoluteDeviation = freeWaterMad,
+                OutOfTolerancePercent = freeWaterOutOfTolerance,
+                AccumulatedIncreasedWater = accumulatedIncreasedWater,
                 Months = freeWaterMonths
                     .Select(m => new FreeWaterMonthDto
                     {
@@ -103,16 +136,51 @@ public class OverviewService : IOverviewService
                     .ToList()
             };
 
-        // Dosis: media mensual de Dosis programada y Dosis real inyectada, y su desviación (programada - inyectada).
+        // Dosis: la gráfica mensual se mantiene en ppm (dosis programada vs inyectada).
         var doseMonths = MonthlyDeviation(
             filas, f => f.Date, f => f.Scheduled_Dose, f => f.Actual_Injected_Dose);
 
-        var dose = doseMonths.Count == 0
+        // Cumplimiento y tolerancia se calculan sobre volúmenes del periodo (no ppm: el
+        // acumulado de una concentración no tiene sentido). Un "caso" = un registro con
+        // volumen programado y real.
+        var volumePairs = filas
+            .Where(f => f.Programmed_volume.HasValue && f.Actual_volume.HasValue)
+            .Select(f => new { Prog = f.Programmed_volume!.Value, Real = f.Actual_volume!.Value })
+            .ToList();
+
+        var sumProgVolume = volumePairs.Sum(v => v.Prog);
+        var sumRealVolume = volumePairs.Sum(v => v.Real);
+
+        // Cumplimiento global: (Σreal / Σprog) × 100.
+        decimal? globalCompliance = sumProgVolume == 0
+            ? null
+            : Math.Round(sumRealVolume * 100m / sumProgVolume, 2);
+
+        // Desviación: ((Σreal - Σprog) / Σprog) × 100 (= cumplimiento - 100).
+        decimal? doseDeviationPercent = sumProgVolume == 0
+            ? null
+            : Math.Round((sumRealVolume - sumProgVolume) * 100m / sumProgVolume, 2);
+
+        // Fuera de tolerancia: registros con desviación individual > ±20%. El conteo es por
+        // registro (aplicación), no por mes, así que el denominador es el nº de registros evaluados.
+        var toleranceEvaluated = volumePairs.Where(v => v.Prog != 0).ToList();
+        var doseOutOfToleranceCount = toleranceEvaluated
+            .Count(v => Math.Abs((v.Real - v.Prog) * 100m / v.Prog) > DoseTolerancePercent);
+
+        // Volumen real acumulado inyectado en el periodo.
+        decimal? accumulatedActualVolume = volumePairs.Count == 0
+            ? null
+            : Math.Round(sumRealVolume, 2);
+
+        var dose = doseMonths.Count == 0 && volumePairs.Count == 0
             ? DoseDto.Empty
             : new DoseDto
             {
-                MeanDeviation = MeanDeviation(doseMonths),
-                StdDeviation = StdDeviation(doseMonths),
+                GlobalCompliancePercent = globalCompliance,
+                DeviationPercent = doseDeviationPercent,
+                OutOfToleranceCount = doseOutOfToleranceCount,
+                EvaluatedCount = toleranceEvaluated.Count,
+                AccumulatedActualVolume = accumulatedActualVolume,
                 Months = doseMonths
                     .Select(m => new DoseMonthDto
                     {
@@ -193,6 +261,14 @@ public class OverviewService : IOverviewService
     }
 
     private sealed record MonthlyMeans(int Year, int Month, decimal MeanA, decimal MeanB);
+
+    // Tolerancia de agua libre: una medición está "fuera de tolerancia" si
+    // |Reported_FWV - Calculated_FWV| supera 300 BBL.
+    private const decimal FreeWaterToleranceBbl = 300m;
+
+    // Tolerancia de dosis: un registro está "fuera de tolerancia" si su desviación individual
+    // de volumen |((real - prog) / prog) × 100| supera el 20%.
+    private const decimal DoseTolerancePercent = 20m;
 
     // Tipos de visita que cuentan como muestreo: pre, post y seguimientos
     // (se excluyen "No disponible por OPS" y sin tipo).
