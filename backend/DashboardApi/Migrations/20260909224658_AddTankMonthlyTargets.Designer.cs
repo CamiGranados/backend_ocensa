@@ -4,6 +4,7 @@ using DashboardApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DashboardApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260909224658_AddTankMonthlyTargets")]
+    partial class AddTankMonthlyTargets
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -37,34 +40,6 @@ namespace DashboardApi.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Companies");
-                });
-
-            modelBuilder.Entity("DashboardApi.Models.Limits_Value", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTime>("DateRegistered")
-                        .HasColumnType("datetime2");
-
-                    b.Property<decimal?>("MaxValue")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("decimal(18,4)");
-
-                    b.Property<decimal?>("MinValue")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("decimal(18,4)");
-
-                    b.Property<string>("VariableName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Limits_Values");
                 });
 
             modelBuilder.Entity("DashboardApi.Models.Measurement", b =>

@@ -33,7 +33,7 @@ namespace DashboardApi.Models
         public decimal? Scheduled_Dose { get; set; }
         public decimal? Actual_Injected_Dose { get; set; }
         public decimal? Programmed_volume { get; set; }
-        public decimal? Actual_volume { get; set; }
+        public decimal? Real_Volume { get; set; }
         public string Standard_Sampling_Type { get; set; } = string.Empty;
         public string Category_Nace { get; set; } = string.Empty;
         public string Level_Alarm { get; set; } = string.Empty;

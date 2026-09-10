@@ -12,8 +12,8 @@
     { "nombre": "BPA_planct", "tipo": "decimal", "obligatorio": false, "min": 0 },
     { "nombre": "BHT_planct", "tipo": "decimal", "obligatorio": false, "min": 0 },
     { "nombre": "BAnT_planct", "tipo": "decimal", "obligatorio": false, "min": 0 },
-    { "nombre": "Vel. Corrosión Generalizada_cupon", "tipo": "decimal", "obligatorio": false, "min": 0 },
-    { "nombre": "Vel. Picadura Máxima_biocupon", "tipo": "decimal", "obligatorio": false, "min": 0 },
+    { "nombre": "Vel_Corrosión_Generalizada", "tipo": "decimal", "obligatorio": false, "min": 0 },
+    { "nombre": "Vel_Picadura_Máxima", "tipo": "decimal", "obligatorio": false, "min": 0 },
     { "nombre": "origen", "tipo": "string", "obligatorio": true },
     { "nombre": "%biocida", "tipo": "decimal", "obligatorio": false, "min": 0 },
     { "nombre": "THPS_%", "tipo": "decimal", "obligatorio": false, "min": 0 },
@@ -33,7 +33,18 @@
     { "nombre": "FWV incrementada", "tipo": "decimal", "obligatorio": false},
     { "nombre": "Dosis real inyectada", "tipo": "decimal", "obligatorio": false, "min": 0 },
     { "nombre": "Tipo_Muestreo_norm", "tipo": "string", "obligatorio": false },
-    { "nombre": "Categoría [NACE SP0775-23]_biocupon", "tipo": "string", "obligatorio": false },
-    { "nombre": "Alarma_ivel", "tipo": "string", "obligatorio": false }
+    { "nombre": "Categoría_NACE_SP0775-23", "tipo": "string", "obligatorio": false },
+    { "nombre": "Nivel_Alarma", "tipo": "string", "obligatorio": false },
+    { "nombre": "Agua estimada contractual", "tipo": "string", "obligatorio": false },
+    { "nombre": "periodicidad contractual", "tipo": "decimal", "obligatorio": false },
+    { "nombre": "Dosis oferta económica(ppm)", "tipo": "decimal", "obligatorio": false},
+    { "nombre": "galones estimados mensuales", "tipo": "decimal", "obligatorio": false},
+    { "nombre": "Agua estimada linea base", "tipo": "decimal", "obligatorio": false },
+    { "nombre": "Periodicidad linea base", "tipo": "decimal", "obligatorio": false },
+    { "nombre": "dosis linea base", "tipo": "decimal", "obligatorio": false },
+    { "nombre": "galones estimados linea base", "tipo": "decimal", "obligatorio": false },
+    { "nombre": "Agua estimada actual", "tipo": "decimal", "obligatorio": false },
+    { "nombre": "dosis actual", "tipo": "decimal", "obligatorio": false },
+    { "nombre": "galones actuales", "tipo": "decimal", "obligatorio": false }
   ]
 }

@@ -155,14 +155,73 @@ namespace DashboardApi.Controllers
                 var companias = await _db.Companies.ToDictionaryAsync(c => c.Name, c => c.Id);
                 var tanques = await _db.Tanks.ToDictionaryAsync(t => t.Name, t => t.Id);
 
+                // Escenarios de meta: filas fijas, se crean una sola vez y se reutilizan.
+                var escenarios = await _db.TargetScenarios.ToDictionaryAsync(s => s.Name, s => s.Id);
+                async Task<int> ObtenerEscenarioId(string nombre)
+                {
+                    if (!escenarios.TryGetValue(nombre, out var id))
+                    {
+                        var nuevo = new TargetScenario { Name = nombre };
+                        _db.TargetScenarios.Add(nuevo);
+                        await _db.SaveChangesAsync();
+                        id = nuevo.Id;
+                        escenarios[nombre] = id;
+                    }
+                    return id;
+                }
+                var escenarioContractualId = await ObtenerEscenarioId("Contractual");
+                var escenarioLineaBaseId = await ObtenerEscenarioId("Línea base");
+                var escenarioActualId = await ObtenerEscenarioId("Actual");
+
+                // Metas mensuales acumuladas en memoria: clave = (empresa, tanque, escenario, período).
+                // No se agregan al DbContext dentro del bucle porque el ChangeTracker.Clear()
+                // del guardado por lotes descartaría las que aún no se persistieron.
+                var metasAcumuladas = new Dictionary<(long Empresa, long Tanque, int Escenario, DateOnly Periodo), TankMonthlyTarget>();
+
                 var years = new HashSet<int>();
 
                 // 3. Recorrer filas: una fila = un Measurement (más un PhysicalChemistry si trae datos fisicoquímicos)
-                // ← NUEVO: se guarda en lotes (en vez de todo en un solo SaveChanges) para
-                // evitar transacciones gigantes que agotan el CommandTimeout con archivos grandes.
-                const int tamanoLote = 5000;
-                var pendientes = 0;
+                // ← Guardado en dos pasadas por lote:
+                //   1) INSERT de los Measurement  → EF Core usa "INSERT ... OUTPUT" por lotes (camino rápido).
+                //   2) INSERT de los PhysicalChemistry con el MeasurementId ya generado.
+                // Agregar ambos al mismo SaveChanges hacía que EF emitiera un "MERGE ... OUTPUT" con
+                // columna de posición (para correlacionar la clave generada con el dependiente): 10-50x
+                // más lento y agotaba el CommandTimeout con archivos de miles de filas.
+                const int tamanoLote = 2000;
                 _db.ChangeTracker.AutoDetectChangesEnabled = false;
+
+                // Acumuladores del lote actual. loteFisicoquimicos[i] corresponde a loteMediciones[i]
+                // (null si esa fila no trae datos fisicoquímicos).
+                var loteMediciones = new List<Measurement>();
+                var loteFisicoquimicos = new List<PhysicalChemistry?>();
+
+                async Task GuardarLoteAsync()
+                {
+                    if (loteMediciones.Count == 0) return;
+
+                    // Pasada 1: solo Measurements (INSERT ... OUTPUT por lotes).
+                    _db.Measurements.AddRange(loteMediciones);
+                    await _db.SaveChangesAsync();
+
+                    // Pasada 2: PhysicalChemistry con la FK ya generada.
+                    var fisicoquimicos = new List<PhysicalChemistry>();
+                    for (var i = 0; i < loteMediciones.Count; i++)
+                    {
+                        var fq = loteFisicoquimicos[i];
+                        if (fq is null) continue;
+                        fq.MeasurementId = loteMediciones[i].Id;
+                        fisicoquimicos.Add(fq);
+                    }
+                    if (fisicoquimicos.Count > 0)
+                    {
+                        _db.PhysicalChemistries.AddRange(fisicoquimicos);
+                        await _db.SaveChangesAsync();
+                    }
+
+                    _db.ChangeTracker.Clear();
+                    loteMediciones.Clear();
+                    loteFisicoquimicos.Clear();
+                }
 
                 foreach (var fila in filasCombinadas)
                 {
@@ -182,10 +241,6 @@ namespace DashboardApi.Controllers
                     {
                         var nueva = new Company { Name = nombreCompania };
                         _db.Companies.Add(nueva);
-                        upload.DateRanges = System.Text.Json.JsonSerializer.Serialize(years.OrderBy(a => a));
-                        // ← con AutoDetectChangesEnabled = false hay que marcar el cambio a mano
-                        _db.Entry(upload).Property(u => u.DateRanges).IsModified = true;
-
                         await _db.SaveChangesAsync();      // para obtener su Id
                         companyId = nueva.Id;
                         companias[nombreCompania] = companyId;
@@ -233,18 +288,15 @@ namespace DashboardApi.Controllers
                         Scheduled_Dose = Dec("Dosis programada"),
                         Actual_Injected_Dose = Dec("Dosis real inyectada"),
                         Programmed_volume = Dec("Volumen programado"),
-                        Actual_volume = Dec("Volumen real"),
+                        Real_Volume = Dec("Volumen real"),
                         Standard_Sampling_Type = Str("Tipo_Muestreo_norm"),
-                        Category_Nace = Str("Categoría [NACE SP0775-23]_biocupon"),
-                        Level_Alarm = Str("Alarma_ivel"),
+                        Category_Nace = Str("Categoría_NACE_SP0775-23"),
                         UploadId = upload.Id
                     };
-                    _db.Measurements.Add(medicion);
-                    pendientes++;
-
                     var fisicoquimico = new PhysicalChemistry
                     {
-                        Measurement = medicion,
+                        // Sin navegación Measurement: la FK se asigna en GuardarLoteAsync,
+                        // ya con el Measurement.Id generado.
                         Temperature_C = Dec("Temperatura [°C]"),
                         H2S_mgL = Dec("H2S [mg/L]"),
                         pH = Dec("pH"),
@@ -252,8 +304,8 @@ namespace DashboardApi.Controllers
                         Alkalinity_mgL = Dec("Alcalinidad [mg/L (CaCO3)]"),
                         calcium_mgL = Dec("Calcio [mg/L]"),
                         BSW_percent = Dec("BSW (%)"),
-                        General_Corrosion_Rate_ppm = Dec("Vel. Corrosión Generalizada_cupon"),
-                        Maximum_Sting_Speed_ppm = Dec("Vel. Picadura Máxima_biocupon"),
+                        General_Corrosion_Rate_ppm = Dec("Vel_Corrosión_Generalizada"),
+                        Maximum_Sting_Speed_ppm = Dec("Vel_Picadura_Máxima"),
                     };
 
                     // solo se guarda el registro fisicoquímico si la fila realmente trae algún dato
@@ -262,22 +314,97 @@ namespace DashboardApi.Controllers
                         fisicoquimico.Conductivity_uScm != null || fisicoquimico.Alkalinity_mgL != null || fisicoquimico.calcium_mgL != null ||
                         fisicoquimico.BSW_percent != null || fisicoquimico.General_Corrosion_Rate_ppm != null || fisicoquimico.Maximum_Sting_Speed_ppm != null;
 
-                    if (tieneDatosFisicoquimicos)
+                    loteMediciones.Add(medicion);
+                    loteFisicoquimicos.Add(tieneDatosFisicoquimicos ? fisicoquimico : null);
+
+                    // ── Metas mensuales (TankMonthlyTarget) ────────────────────────
+                    // Las columnas de meta (contractual / línea base / actual) se repiten
+                    // en cada fila del tanque: se toma el primer juego no vacío por mes.
+                    if (validDate)
                     {
-                        _db.PhysicalChemistries.Add(fisicoquimico);
-                        pendientes++;
+                        var periodo = new DateOnly(fecha.Year, fecha.Month, 1);
+
+                        void AcumularMeta(int scenarioId, decimal? aguaMin, decimal? aguaMax,
+                            decimal? periodicidad, decimal? dosis, decimal? galones)
+                        {
+                            // Sin ningún dato → no se crea meta para ese escenario.
+                            if (aguaMin is null && aguaMax is null && periodicidad is null && dosis is null && galones is null)
+                                return;
+
+                            var clave = (companyId, tankId, scenarioId, periodo);
+                            if (metasAcumuladas.ContainsKey(clave)) return;
+
+                            metasAcumuladas[clave] = new TankMonthlyTarget
+                            {
+                                CompanyId = companyId,
+                                TankId = tankId,
+                                ScenarioId = scenarioId,
+                                Period = periodo,
+                                EstimatedWaterMin_bbl = aguaMin,
+                                EstimatedWaterMax_bbl = aguaMax,
+                                Periodicity_BatchesPerMonth = periodicidad.HasValue ? (int)Math.Round(periodicidad.Value) : null,
+                                Dose_ppm = dosis,
+                                EstimatedGallons_Month = galones,
+                            };
+                        }
+
+                        var (aguaContractualMin, aguaContractualMax) = ParsearRangoAgua(Str("Agua estimada contractual"));
+                        AcumularMeta(escenarioContractualId, aguaContractualMin, aguaContractualMax,
+                            Dec("periodicidad contractual"), Dec("Dosis oferta económica(ppm)"), Dec("galones estimados mensuales"));
+
+                        var aguaLineaBase = Dec("Agua estimada linea base");
+                        AcumularMeta(escenarioLineaBaseId, aguaLineaBase, aguaLineaBase,
+                            Dec("Periodicidad linea base"), Dec("dosis linea base"), Dec("galones estimados linea base"));
+
+                        var aguaActual = Dec("Agua estimada actual");
+                        AcumularMeta(escenarioActualId, aguaActual, aguaActual,
+                            null, Dec("dosis actual"), Dec("galones actuales"));
                     }
 
-                    if (pendientes >= tamanoLote)
-                    {
-                        await _db.SaveChangesAsync();
-                        _db.ChangeTracker.Clear();   // libera las entidades ya guardadas (no hay navegaciones que perder)
-                        pendientes = 0;
-                    }
+                    if (loteMediciones.Count >= tamanoLote)
+                        await GuardarLoteAsync();
                 }
 
-                await _db.SaveChangesAsync();   // guarda el remanente que no completó un lote
+                await GuardarLoteAsync();   // guarda el remanente que no completó un lote
                 _db.ChangeTracker.AutoDetectChangesEnabled = true;
+
+                // ── Rango de años del archivo ──────────────────────────────────
+                // Se calcula sobre TODAS las filas (arriba, en el bucle) y se guarda
+                // una sola vez aquí. Antes se asignaba solo al crear una empresa nueva,
+                // así que en re-cargas (empresas ya existentes) quedaba en NULL.
+                // Lo consume GET api/tanks/years para el filtro de años del dashboard.
+                upload.DateRanges = System.Text.Json.JsonSerializer.Serialize(years.OrderBy(a => a).ToList());
+                _db.Uploads.Update(upload);
+                await _db.SaveChangesAsync();
+
+                // ── Guardado de metas mensuales ────────────────────────────────
+                // Si ya existe la combinación (empresa, tanque, escenario, período)
+                // en la BD se omite: no se duplica ni se sobrescribe.
+                var metasCreadas = 0;
+                if (metasAcumuladas.Count > 0)
+                {
+                    var companyIds = metasAcumuladas.Keys.Select(k => k.Empresa).Distinct().ToList();
+                    var tankIds = metasAcumuladas.Keys.Select(k => k.Tanque).Distinct().ToList();
+
+                    var clavesExistentes = (await _db.TankMonthlyTargets
+                            .Where(t => companyIds.Contains(t.CompanyId) && tankIds.Contains(t.TankId))
+                            .Select(t => new { t.CompanyId, t.TankId, t.ScenarioId, t.Period })
+                            .ToListAsync())
+                        .Select(t => (t.CompanyId, t.TankId, t.ScenarioId, t.Period))
+                        .ToHashSet();
+
+                    var nuevasMetas = metasAcumuladas
+                        .Where(kv => !clavesExistentes.Contains(kv.Key))
+                        .Select(kv => kv.Value)
+                        .ToList();
+
+                    if (nuevasMetas.Count > 0)
+                    {
+                        _db.TankMonthlyTargets.AddRange(nuevasMetas);
+                        await _db.SaveChangesAsync();
+                        metasCreadas = nuevasMetas.Count;
+                    }
+                }
 
                 return Ok(new
                 {
@@ -285,7 +412,8 @@ namespace DashboardApi.Controllers
                     mensaje = "OK",
                     loteId = upload.LoteId,
                     uploadId = upload.Id,
-                    totalFilas = filasCombinadas.Count
+                    totalFilas = filasCombinadas.Count,
+                    metasCreadas
                 });
                 // ═══════════════════════════════════════════════════════
                 // ← FIN de lo nuevo
@@ -295,6 +423,41 @@ namespace DashboardApi.Controllers
             {
                 return StatusCode(500, new { mensaje = "Error al procesar los archivos.", detalle = ex.Message });
             }
+        }
+
+        // "Agua estimada contractual" llega como rango: "1.000 – 2.500", a veces
+        // "1000 - 2500" o "1.000 a 2.500". Devuelve (min, max) en número; un solo
+        // valor devuelve (n, n). Sin dato → (null, null).
+        private static readonly char[] SeparadoresRango = { '–', '—', '-', '~' };
+        private static readonly string[] SeparadorRangoTexto = { " a " };
+
+        private static (decimal? Min, decimal? Max) ParsearRangoAgua(string? valor)
+        {
+            if (string.IsNullOrWhiteSpace(valor)) return (null, null);
+
+            var partes = valor
+                .Split(SeparadoresRango, StringSplitOptions.RemoveEmptyEntries)
+                .SelectMany(p => p.Split(SeparadorRangoTexto, StringSplitOptions.RemoveEmptyEntries))
+                .Select(p => p.Trim())
+                .Where(p => p.Length > 0)
+                .ToList();
+
+            if (partes.Count == 0) return (null, null);
+
+            static decimal? Parsear(string s) =>
+                decimal.TryParse(s, NumberStyles.Any, CulturaDatos, out var numero) ? numero : null;
+
+            if (partes.Count == 1)
+            {
+                var unico = Parsear(partes[0]);
+                return (unico, unico);
+            }
+
+            var a = Parsear(partes[0]);
+            var b = Parsear(partes[^1]);
+            if (a is null) return (b, b);
+            if (b is null) return (a, a);
+            return (Math.Min(a.Value, b.Value), Math.Max(a.Value, b.Value));
         }
     }
 }

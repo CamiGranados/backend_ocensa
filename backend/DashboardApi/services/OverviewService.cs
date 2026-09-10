@@ -59,7 +59,7 @@ public class OverviewService : IOverviewService
                 m.Scheduled_Dose,
                 m.Actual_Injected_Dose,
                 m.Programmed_volume,
-                m.Actual_volume,
+                m.Real_Volume,
                 m.Standard_Sampling_Type,
                 m.Category_Nace,
                 m.Level_Alarm
@@ -144,8 +144,8 @@ public class OverviewService : IOverviewService
         // acumulado de una concentración no tiene sentido). Un "caso" = un registro con
         // volumen programado y real.
         var volumePairs = filas
-            .Where(f => f.Programmed_volume.HasValue && f.Actual_volume.HasValue)
-            .Select(f => new { Prog = f.Programmed_volume!.Value, Real = f.Actual_volume!.Value })
+            .Where(f => f.Programmed_volume.HasValue && f.Real_Volume.HasValue)
+            .Select(f => new { Prog = f.Programmed_volume!.Value, Real = f.Real_Volume!.Value })
             .ToList();
 
         var sumProgVolume = volumePairs.Sum(v => v.Prog);
