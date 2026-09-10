@@ -19,7 +19,7 @@ SET XACT_ABORT ON;   -- cualquier error aborta y hace rollback
 PRINT '=== Conteos ANTES ===';
 SELECT 'Measurements'        AS tabla, COUNT(*) AS filas FROM dbo.Measurements
 UNION ALL SELECT 'PhysicalChemistries', COUNT(*) FROM dbo.PhysicalChemistries
-UNION ALL SELECT 'TankMonthlyTargets',  COUNT(*) FROM dbo.TankMonthlyTargets
+UNION ALL SELECT 'TankTargetPeriods',   COUNT(*) FROM dbo.TankTargetPeriods
 UNION ALL SELECT 'Uploads',             COUNT(*) FROM dbo.Uploads
 UNION ALL SELECT 'Companies (se conserva)',       COUNT(*) FROM dbo.Companies
 UNION ALL SELECT 'Tanks (se conserva)',           COUNT(*) FROM dbo.Tanks
@@ -29,7 +29,7 @@ BEGIN TRAN;
 
     -- Orden respetando las FK: hijos -> padres
     DELETE FROM dbo.PhysicalChemistries;
-    DELETE FROM dbo.TankMonthlyTargets;
+    DELETE FROM dbo.TankTargetPeriods;
     DELETE FROM dbo.Measurements;
     DELETE FROM dbo.Uploads;
 
@@ -43,7 +43,7 @@ BEGIN TRAN;
 
     -- Reiniciar los contadores IDENTITY para que los Id vuelvan a empezar en 1.
     DBCC CHECKIDENT ('dbo.PhysicalChemistries', RESEED, 0) WITH NO_INFOMSGS;
-    DBCC CHECKIDENT ('dbo.TankMonthlyTargets',  RESEED, 0) WITH NO_INFOMSGS;
+    DBCC CHECKIDENT ('dbo.TankTargetPeriods',   RESEED, 0) WITH NO_INFOMSGS;
     DBCC CHECKIDENT ('dbo.Measurements',        RESEED, 0) WITH NO_INFOMSGS;
     DBCC CHECKIDENT ('dbo.Uploads',             RESEED, 0) WITH NO_INFOMSGS;
 
@@ -52,7 +52,7 @@ COMMIT TRAN;
 PRINT '=== Conteos DESPUÉS ===';
 SELECT 'Measurements'        AS tabla, COUNT(*) AS filas FROM dbo.Measurements
 UNION ALL SELECT 'PhysicalChemistries', COUNT(*) FROM dbo.PhysicalChemistries
-UNION ALL SELECT 'TankMonthlyTargets',  COUNT(*) FROM dbo.TankMonthlyTargets
+UNION ALL SELECT 'TankTargetPeriods',   COUNT(*) FROM dbo.TankTargetPeriods
 UNION ALL SELECT 'Uploads',             COUNT(*) FROM dbo.Uploads
 UNION ALL SELECT 'Companies (se conserva)',       COUNT(*) FROM dbo.Companies
 UNION ALL SELECT 'Tanks (se conserva)',           COUNT(*) FROM dbo.Tanks

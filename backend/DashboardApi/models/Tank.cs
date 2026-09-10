@@ -4,6 +4,7 @@ namespace DashboardApi.Models
     {
         public long Id { get; set; }
         public string Name { get; set; } = string.Empty;   // "TK7311"
-        public ICollection<TankMonthlyTarget> TankMonthlyTargets { get; set; } = new List<TankMonthlyTarget>();
+
+        public ICollection<TankTargetPeriod> TankTargetPeriods { get; set; } = new List<TankTargetPeriod>();
     }
 }

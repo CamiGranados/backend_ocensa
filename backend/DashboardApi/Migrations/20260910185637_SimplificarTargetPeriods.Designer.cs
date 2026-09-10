@@ -4,6 +4,7 @@ using DashboardApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DashboardApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260910185637_SimplificarTargetPeriods")]
+    partial class SimplificarTargetPeriods
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -109,8 +112,7 @@ namespace DashboardApi.Migrations
 
                     b.Property<string>("Category_Nace")
                         .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<long>("CompanyId")
                         .HasColumnType("bigint");
@@ -139,8 +141,7 @@ namespace DashboardApi.Migrations
 
                     b.Property<string>("Level_Alarm")
                         .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("Programmed_volume")
                         .HasPrecision(18, 4)
@@ -160,8 +161,7 @@ namespace DashboardApi.Migrations
 
                     b.Property<string>("Sampling_Point")
                         .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("Scheduled_Dose")
                         .HasPrecision(18, 4)
@@ -169,8 +169,7 @@ namespace DashboardApi.Migrations
 
                     b.Property<string>("Standard_Sampling_Type")
                         .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("THPS_percent")
                         .HasPrecision(18, 4)

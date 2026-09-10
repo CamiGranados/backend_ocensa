@@ -4,6 +4,7 @@ using DashboardApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DashboardApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260910181907_ReestructurarMetasComoPeriodos")]
+    partial class ReestructurarMetasComoPeriodos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -109,8 +112,7 @@ namespace DashboardApi.Migrations
 
                     b.Property<string>("Category_Nace")
                         .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<long>("CompanyId")
                         .HasColumnType("bigint");
@@ -139,8 +141,7 @@ namespace DashboardApi.Migrations
 
                     b.Property<string>("Level_Alarm")
                         .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("Programmed_volume")
                         .HasPrecision(18, 4)
@@ -158,10 +159,15 @@ namespace DashboardApi.Migrations
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
 
+                    b.Property<byte[]>("RowHash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("binary(32)")
+                        .IsFixedLength();
+
                     b.Property<string>("Sampling_Point")
                         .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("Scheduled_Dose")
                         .HasPrecision(18, 4)
@@ -169,8 +175,7 @@ namespace DashboardApi.Migrations
 
                     b.Property<string>("Standard_Sampling_Type")
                         .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("THPS_percent")
                         .HasPrecision(18, 4)
@@ -184,6 +189,9 @@ namespace DashboardApi.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("RowHash")
+                        .IsUnique();
+
                     b.HasIndex("TankId");
 
                     b.HasIndex("UploadId");
@@ -191,6 +199,92 @@ namespace DashboardApi.Migrations
                     b.HasIndex("CompanyId", "TankId", "Date");
 
                     b.ToTable("Measurements");
+                });
+
+            modelBuilder.Entity("DashboardApi.Models.MeasurementTargetSample", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("CompanyId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("DoseActual_ppm")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("DoseBaseline_ppm")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("DoseContractual_ppm")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("FluidType")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal?>("GallonsActual_Month")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("GallonsBaseline_Month")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("GallonsContractual_Month")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<long>("MeasurementId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal?>("NominalCapacity_bbl")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("PeriodicityBaseline")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("PeriodicityContractual")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<long>("TankId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal?>("WaterActual_bbl")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("WaterBaseline_bbl")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("WaterContractualMax_bbl")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("WaterContractualMin_bbl")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MeasurementId")
+                        .IsUnique();
+
+                    b.HasIndex("TankId", "Date");
+
+                    b.ToTable("MeasurementTargetSamples");
                 });
 
             modelBuilder.Entity("DashboardApi.Models.PhysicalChemistry", b =>
@@ -264,6 +358,39 @@ namespace DashboardApi.Migrations
                     b.ToTable("Tanks");
                 });
 
+            modelBuilder.Entity("DashboardApi.Models.TankProfilePeriod", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("FluidType")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal?>("NominalCapacity_bbl")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<long>("TankId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateOnly>("ValidFrom")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("ValidTo")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TankId", "ValidFrom")
+                        .IsUnique();
+
+                    b.ToTable("TankProfilePeriods");
+                });
+
             modelBuilder.Entity("DashboardApi.Models.TankTargetPeriod", b =>
                 {
                     b.Property<long>("Id")
@@ -288,14 +415,6 @@ namespace DashboardApi.Migrations
                         .HasColumnType("decimal(18,4)");
 
                     b.Property<decimal?>("EstimatedWaterMin_bbl")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("decimal(18,4)");
-
-                    b.Property<string>("FluidType")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<decimal?>("NominalCapacity_bbl")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
 
@@ -399,6 +518,17 @@ namespace DashboardApi.Migrations
                     b.Navigation("Upload");
                 });
 
+            modelBuilder.Entity("DashboardApi.Models.MeasurementTargetSample", b =>
+                {
+                    b.HasOne("DashboardApi.Models.Measurement", "Measurement")
+                        .WithOne("TargetSample")
+                        .HasForeignKey("DashboardApi.Models.MeasurementTargetSample", "MeasurementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Measurement");
+                });
+
             modelBuilder.Entity("DashboardApi.Models.PhysicalChemistry", b =>
                 {
                     b.HasOne("DashboardApi.Models.Measurement", "Measurement")
@@ -408,6 +538,17 @@ namespace DashboardApi.Migrations
                         .IsRequired();
 
                     b.Navigation("Measurement");
+                });
+
+            modelBuilder.Entity("DashboardApi.Models.TankProfilePeriod", b =>
+                {
+                    b.HasOne("DashboardApi.Models.Tank", "Tank")
+                        .WithMany("TankProfilePeriods")
+                        .HasForeignKey("TankId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Tank");
                 });
 
             modelBuilder.Entity("DashboardApi.Models.TankTargetPeriod", b =>
@@ -442,8 +583,15 @@ namespace DashboardApi.Migrations
                     b.Navigation("TankTargetPeriods");
                 });
 
+            modelBuilder.Entity("DashboardApi.Models.Measurement", b =>
+                {
+                    b.Navigation("TargetSample");
+                });
+
             modelBuilder.Entity("DashboardApi.Models.Tank", b =>
                 {
+                    b.Navigation("TankProfilePeriods");
+
                     b.Navigation("TankTargetPeriods");
                 });
 

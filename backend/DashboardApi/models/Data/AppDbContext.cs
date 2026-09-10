@@ -13,7 +13,7 @@ namespace DashboardApi.Data
         public DbSet<Upload> Uploads { get; set; }
         public DbSet<PhysicalChemistry> PhysicalChemistries { get; set; }
         public DbSet<TargetScenario> TargetScenarios { get; set; }
-        public DbSet<TankMonthlyTarget> TankMonthlyTargets { get; set; }
+        public DbSet<TankTargetPeriod> TankTargetPeriods { get; set; }
         public DbSet<Limits_Value> Limits_Values { get; set; }
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
@@ -33,29 +33,33 @@ namespace DashboardApi.Data
                 .HasIndex(s => s.Name)
                 .IsUnique();
 
-            // Una sola meta por empresa + tanque + escenario + mes.
+            // Un solo periodo por empresa + tanque + escenario + fecha de inicio.
             // Es la clave natural que usa la carga para no duplicar en re-cargas.
-            modelBuilder.Entity<TankMonthlyTarget>()
-                .HasIndex(t => new { t.CompanyId, t.TankId, t.ScenarioId, t.Period })
+            modelBuilder.Entity<TankTargetPeriod>()
+                .HasIndex(t => new { t.CompanyId, t.TankId, t.ScenarioId, t.ValidFrom })
                 .IsUnique();
+
+            modelBuilder.Entity<TankTargetPeriod>()
+                .Property(t => t.FluidType)
+                .HasMaxLength(200);
 
             // Relaciones explícitas con Restrict: borrar una empresa/tanque/escenario
             // no debe arrastrar sus metas (además evita rutas de cascada múltiples en SQL Server).
-            modelBuilder.Entity<TankMonthlyTarget>()
+            modelBuilder.Entity<TankTargetPeriod>()
                 .HasOne(t => t.Company)
-                .WithMany(c => c.TankMonthlyTargets)
+                .WithMany(c => c.TankTargetPeriods)
                 .HasForeignKey(t => t.CompanyId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            modelBuilder.Entity<TankMonthlyTarget>()
+            modelBuilder.Entity<TankTargetPeriod>()
                 .HasOne(t => t.Tank)
-                .WithMany(t => t.TankMonthlyTargets)
+                .WithMany(t => t.TankTargetPeriods)
                 .HasForeignKey(t => t.TankId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            modelBuilder.Entity<TankMonthlyTarget>()
+            modelBuilder.Entity<TankTargetPeriod>()
                 .HasOne(t => t.Scenario)
-                .WithMany(s => s.TankMonthlyTargets)
+                .WithMany(s => s.TankTargetPeriods)
                 .HasForeignKey(t => t.ScenarioId)
                 .OnDelete(DeleteBehavior.Restrict);
         }

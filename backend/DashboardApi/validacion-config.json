@@ -1,6 +1,7 @@
 {
   "columnas": [
     { "nombre": "Tanque", "tipo": "string", "obligatorio": true, "filtro": true, "valoresPermitidos": ["TQ55000", "TK7311", "TK7313"] },
+    { "nombre": "Tipo de Fluido", "tipo": "string", "obligatorio": false},
     { "nombre": "Fecha", "tipo": "date", "obligatorio": true },
     { "nombre": "Temperatura [°C]", "tipo": "decimal", "obligatorio": false, "max": 150 },
     { "nombre": "H2S [mg/L]", "tipo": "decimal", "obligatorio": false },
@@ -35,6 +36,7 @@
     { "nombre": "Tipo_Muestreo_norm", "tipo": "string", "obligatorio": false },
     { "nombre": "Categoría_NACE_SP0775-23", "tipo": "string", "obligatorio": false },
     { "nombre": "Nivel_Alarma", "tipo": "string", "obligatorio": false },
+    { "nombre": "Capacidad nominal", "tipo": "decimal", "obligatorio": false },
     { "nombre": "Agua estimada contractual", "tipo": "string", "obligatorio": false },
     { "nombre": "periodicidad contractual", "tipo": "decimal", "obligatorio": false },
     { "nombre": "Dosis oferta económica(ppm)", "tipo": "decimal", "obligatorio": false},

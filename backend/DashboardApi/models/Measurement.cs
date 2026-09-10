@@ -20,6 +20,8 @@ namespace DashboardApi.Models
         public decimal? BAnT_planct { get; set; }
         public decimal? Biocida_percent { get; set; }
         public decimal? THPS_percent { get; set; }
+        [Required]
+        [MaxLength(30)]
         public string Sampling_Point { get; set; } = string.Empty;
         public DateTime? Injection_date { get; set; }
         public decimal? Residual_THPS { get; set; }
@@ -34,8 +36,14 @@ namespace DashboardApi.Models
         public decimal? Actual_Injected_Dose { get; set; }
         public decimal? Programmed_volume { get; set; }
         public decimal? Real_Volume { get; set; }
+        [Required]
+        [MaxLength(30)]
         public string Standard_Sampling_Type { get; set; } = string.Empty;
+        [Required]
+        [MaxLength(30)]
         public string Category_Nace { get; set; } = string.Empty;
+        [Required]
+        [MaxLength(30)]
         public string Level_Alarm { get; set; } = string.Empty;
 
         [ForeignKey("Upload")]

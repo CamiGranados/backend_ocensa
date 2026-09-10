@@ -17,7 +17,7 @@ SET XACT_ABORT ON;
 PRINT '=== ANTES ===';
 SELECT 'Measurements' t, COUNT(*) n FROM dbo.Measurements
 UNION ALL SELECT 'PhysicalChemistries', COUNT(*) FROM dbo.PhysicalChemistries
-UNION ALL SELECT 'TankMonthlyTargets',  COUNT(*) FROM dbo.TankMonthlyTargets
+UNION ALL SELECT 'TankTargetPeriods',   COUNT(*) FROM dbo.TankTargetPeriods
 UNION ALL SELECT 'Uploads',             COUNT(*) FROM dbo.Uploads
 UNION ALL SELECT 'Companies',            COUNT(*) FROM dbo.Companies
 UNION ALL SELECT 'Tanks',                COUNT(*) FROM dbo.Tanks
@@ -27,7 +27,7 @@ BEGIN TRAN;
 
     -- hijos -> padres
     DELETE FROM dbo.PhysicalChemistries;
-    DELETE FROM dbo.TankMonthlyTargets;
+    DELETE FROM dbo.TankTargetPeriods;
     DELETE FROM dbo.Measurements;
     DELETE FROM dbo.Uploads;
     DELETE FROM dbo.Companies;
@@ -35,7 +35,7 @@ BEGIN TRAN;
     DELETE FROM dbo.TargetScenarios;
 
     DBCC CHECKIDENT ('dbo.PhysicalChemistries', RESEED, 0) WITH NO_INFOMSGS;
-    DBCC CHECKIDENT ('dbo.TankMonthlyTargets',  RESEED, 0) WITH NO_INFOMSGS;
+    DBCC CHECKIDENT ('dbo.TankTargetPeriods',   RESEED, 0) WITH NO_INFOMSGS;
     DBCC CHECKIDENT ('dbo.Measurements',        RESEED, 0) WITH NO_INFOMSGS;
     DBCC CHECKIDENT ('dbo.Uploads',             RESEED, 0) WITH NO_INFOMSGS;
     DBCC CHECKIDENT ('dbo.Companies',           RESEED, 0) WITH NO_INFOMSGS;
@@ -47,7 +47,7 @@ COMMIT TRAN;
 PRINT '=== DESPUES ===';
 SELECT 'Measurements' t, COUNT(*) n FROM dbo.Measurements
 UNION ALL SELECT 'PhysicalChemistries', COUNT(*) FROM dbo.PhysicalChemistries
-UNION ALL SELECT 'TankMonthlyTargets',  COUNT(*) FROM dbo.TankMonthlyTargets
+UNION ALL SELECT 'TankTargetPeriods',   COUNT(*) FROM dbo.TankTargetPeriods
 UNION ALL SELECT 'Uploads',             COUNT(*) FROM dbo.Uploads
 UNION ALL SELECT 'Companies',            COUNT(*) FROM dbo.Companies
 UNION ALL SELECT 'Tanks',                COUNT(*) FROM dbo.Tanks
