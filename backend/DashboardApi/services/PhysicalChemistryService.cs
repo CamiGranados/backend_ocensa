@@ -31,26 +31,26 @@ public class PhysicalChemistryService : IPhysicalChemistryService
 
         var query = _context.PhysicalChemistries
             .AsNoTracking()
-            .Where(pc => pc.Measurement!.TankId == request.TankId);
+            .Where(pc => pc.Measurement!.Operation!.TankId == request.TankId);
 
         if (request.Years?.Length > 0)
         {
             var years = request.Years;
-            query = query.Where(pc => years.Contains(pc.Measurement!.Date.Year));
+            query = query.Where(pc => years.Contains(pc.Measurement!.Operation!.Date.Year));
         }
 
         if (request.Months?.Length > 0)
         {
             var months = request.Months;
-            query = query.Where(pc => months.Contains(pc.Measurement!.Date.Month));
+            query = query.Where(pc => months.Contains(pc.Measurement!.Operation!.Date.Month));
         }
 
         var items = await query
-            .OrderByDescending(pc => pc.Measurement!.Date)
+            .OrderByDescending(pc => pc.Measurement!.Operation!.Date)
             .ThenByDescending(pc => pc.Id)
             .Select(pc => new PhysicalChemistryRecordDto
             {
-                Date = pc.Measurement!.Date,
+                Date = pc.Measurement!.Operation!.Date,
                 TemperatureC = pc.Temperature_C,
                 H2S = pc.H2S_mgL,
                 PH = pc.pH,

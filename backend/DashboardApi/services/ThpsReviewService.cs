@@ -29,40 +29,46 @@ public class ThpsReviewService : IThpsReviewService
         if (!tankExists)
             return ThpsReviewResponseDto.Empty;
 
-        var query = _context.Measurements
+        // Valores microbiológicos por punto de muestreo; datos de dosis/FWV por operación diaria.
+        var medQuery = _context.Measurements
             .AsNoTracking()
-            .Where(m => m.TankId == request.TankId);
+            .Where(m => m.Operation!.TankId == request.TankId);
+        var opQuery = _context.TankDailyOperations
+            .AsNoTracking()
+            .Where(o => o.TankId == request.TankId);
 
         if (request.Years?.Length > 0)
         {
             var years = request.Years;
-            query = query.Where(m => years.Contains(m.Date.Year));
+            medQuery = medQuery.Where(m => years.Contains(m.Operation!.Date.Year));
+            opQuery = opQuery.Where(o => years.Contains(o.Date.Year));
         }
 
         if (request.Months?.Length > 0)
         {
             var months = request.Months;
-            query = query.Where(m => months.Contains(m.Date.Month));
+            medQuery = medQuery.Where(m => months.Contains(m.Operation!.Date.Month));
+            opQuery = opQuery.Where(o => months.Contains(o.Date.Month));
         }
 
-        var totalRecords = await query.CountAsync(cancellationToken);
+        var totalRecords = await medQuery.CountAsync(cancellationToken);
 
-        var residualValues = await query
+        var residualValues = await medQuery
             .Where(m => m.Residual_THPS != null)
             .Select(m => m.Residual_THPS!.Value)
             .ToListAsync(cancellationToken);
 
-        var effectiveDoseValues = await query
-            .Where(m => m.Actual_Injected_Dose != null)
-            .Select(m => m.Actual_Injected_Dose!.Value)
+        var effectiveDoseValues = await opQuery
+            .Where(o => o.Actual_Injected_Dose != null)
+            .Select(o => o.Actual_Injected_Dose!.Value)
             .ToListAsync(cancellationToken);
 
-        var retentionValues = await query
+        var retentionValues = await medQuery
             .Where(m => m.THPS_percent != null)
             .Select(m => m.THPS_percent!.Value)
             .ToListAsync(cancellationToken);
 
-        var eventsWithRealDoseCount = await query
+        var eventsWithRealDoseCount = await medQuery
             .CountAsync(m => m.Standard_Sampling_Type == "Prebache", cancellationToken);
 
         var summary = new ThpsReviewSummaryDto
@@ -74,18 +80,18 @@ public class ThpsReviewService : IThpsReviewService
             TotalRecords = totalRecords
         };
 
-        var items = await query
-            .OrderByDescending(m => m.Date)
+        var items = await medQuery
+            .OrderByDescending(m => m.Operation!.Date)
             .ThenByDescending(m => m.Id)
             .Select(m => new ThpsReviewRecordDto
             {
-                Date = m.Date,
-                RealInjectedDose = m.Actual_Injected_Dose,
-                Scheduled_Dose = m.Scheduled_Dose,
+                Date = m.Operation!.Date,
+                RealInjectedDose = m.Operation!.Actual_Injected_Dose,
+                Scheduled_Dose = m.Operation!.Scheduled_Dose,
                 Residual_per = m.THPS_percent,
-                Estimated_FWV = m.Estimated_FWV,
-                Reported_FWV = m.Reported_FWV,
-                Calculated_FWV = m.Calculated_FWV,
+                Estimated_FWV = m.Operation!.Estimated_FWV,
+                Reported_FWV = m.Operation!.Reported_FWV,
+                Calculated_FWV = m.Operation!.Calculated_FWV,
                 BsrPlanct = m.BSR_planct,
                 BpaPlanct = m.BPA_planct,
                 BhtPlanct = m.BHT_planct,

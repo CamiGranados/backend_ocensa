@@ -24,7 +24,6 @@ public class MeasurementFiltersResponseDto
     public decimal? ThpsMedian { get; set; }
     public int BsrInControlCount { get; set; }
     public string? CategoryNace { get; set; }
-    public string? LevelAlarm { get; set; }
 
     public static MeasurementFiltersResponseDto Empty => new();
 }

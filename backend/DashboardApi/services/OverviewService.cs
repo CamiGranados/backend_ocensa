@@ -27,49 +27,71 @@ public class OverviewService : IOverviewService
         if (!tankExists)
             return DashboardResponseDto.Empty;
 
-        var query = _context.Measurements.Where(m => m.TankId == request.TankId);
+        // Datos operativos del día (una fila por fecha): agua libre, dosis, volúmenes.
+        var opQuery = _context.TankDailyOperations.Where(o => o.TankId == request.TankId);
+        // Valores microbiológicos por punto de muestreo.
+        var medQuery = _context.Measurements.Where(m => m.Operation!.TankId == request.TankId);
+        // Categoría NACE (computada en PhysicalChemistry a partir de la velocidad de corrosión).
+        var pcQuery = _context.PhysicalChemistries.Where(pc => pc.Measurement!.Operation!.TankId == request.TankId);
 
         if (request.Years?.Length > 0)
         {
             var years = request.Years;
-            query = query.Where(m => years.Contains(m.Date.Year));
+            opQuery = opQuery.Where(o => years.Contains(o.Date.Year));
+            medQuery = medQuery.Where(m => years.Contains(m.Operation!.Date.Year));
+            pcQuery = pcQuery.Where(pc => years.Contains(pc.Measurement!.Operation!.Date.Year));
         }
 
         if (request.Months?.Length > 0)
         {
             var months = request.Months;
-            query = query.Where(m => months.Contains(m.Date.Month));
+            opQuery = opQuery.Where(o => months.Contains(o.Date.Month));
+            medQuery = medQuery.Where(m => months.Contains(m.Operation!.Date.Month));
+            pcQuery = pcQuery.Where(pc => months.Contains(pc.Measurement!.Operation!.Date.Month));
         }
 
-        var filas = await query
+        var operations = await opQuery
             .AsNoTracking()
-            .OrderByDescending(m => m.Date)
+            .OrderByDescending(o => o.Date)
+            .Select(o => new
+            {
+                o.Date,
+                o.Reported_FWV,
+                o.Calculated_FWV,
+                o.Increased_FWV,
+                o.Scheduled_Dose,
+                o.Actual_Injected_Dose,
+                o.Programmed_volume,
+                o.Real_Volume
+            })
+            .ToListAsync();
+
+        var categoryNace = await pcQuery
+            .Where(pc => pc.Category_Nace != null)
+            .OrderByDescending(pc => pc.Measurement!.Operation!.Date)
+            .Select(pc => pc.Category_Nace)
+            .FirstOrDefaultAsync();
+
+        var measurements = await medQuery
+            .AsNoTracking()
+            .OrderByDescending(m => m.Operation!.Date)
             .ThenByDescending(m => m.Id)
             .Select(m => new
             {
-                m.Date,
+                Date = m.Operation!.Date,
                 m.THPS_percent,
                 m.BSR_planct,
                 m.BPA_planct,
                 m.BHT_planct,
                 m.BAnT_planct,
-                m.Reported_FWV,
-                m.Calculated_FWV,
-                m.Increased_FWV,
-                m.Scheduled_Dose,
-                m.Actual_Injected_Dose,
-                m.Programmed_volume,
-                m.Real_Volume,
-                m.Standard_Sampling_Type,
-                m.Category_Nace,
-                m.Level_Alarm
+                m.Standard_Sampling_Type
             })
             .ToListAsync();
 
-        if (filas.Count == 0)
+        if (operations.Count == 0 && measurements.Count == 0)
             return DashboardResponseDto.Empty;
 
-        var thpsValues = filas
+        var thpsValues = measurements
             .Where(f => f.THPS_percent.HasValue)
             .Select(f => f.THPS_percent!.Value)
             .OrderBy(v => v)
@@ -86,11 +108,11 @@ public class OverviewService : IOverviewService
 
         // Aguas libres: media mensual de FWV reportada y FWV calculada, y su desviación (reportada - calculada).
         var freeWaterMonths = MonthlyDeviation(
-            filas, f => f.Date, f => f.Reported_FWV, f => f.Calculated_FWV);
+            operations, f => f.Date, f => f.Reported_FWV, f => f.Calculated_FWV);
 
         // Métricas sobre todas las mediciones del rango (no agregadas por mes): un "caso" = una medición.
         // Diferencias (Reported_FWV - Calculated_FWV) de las mediciones con ambos valores.
-        var freeWaterDiffs = filas
+        var freeWaterDiffs = operations
             .Where(f => f.Reported_FWV.HasValue && f.Calculated_FWV.HasValue)
             .Select(f => f.Reported_FWV!.Value - f.Calculated_FWV!.Value)
             .ToList();
@@ -107,7 +129,7 @@ public class OverviewService : IOverviewService
                 freeWaterDiffs.Count(d => Math.Abs(d) > FreeWaterToleranceBbl) * 100m / freeWaterDiffs.Count, 2);
 
         // Agua incremental acumulada: suma corrida (total) de Increased_FWV.
-        var increasedFwvValues = filas
+        var increasedFwvValues = operations
             .Where(f => f.Increased_FWV.HasValue)
             .Select(f => f.Increased_FWV!.Value)
             .ToList();
@@ -138,12 +160,12 @@ public class OverviewService : IOverviewService
 
         // Dosis: la gráfica mensual se mantiene en ppm (dosis programada vs inyectada).
         var doseMonths = MonthlyDeviation(
-            filas, f => f.Date, f => f.Scheduled_Dose, f => f.Actual_Injected_Dose);
+            operations, f => f.Date, f => f.Scheduled_Dose, f => f.Actual_Injected_Dose);
 
         // Cumplimiento y tolerancia se calculan sobre volúmenes del periodo (no ppm: el
         // acumulado de una concentración no tiene sentido). Un "caso" = un registro con
         // volumen programado y real.
-        var volumePairs = filas
+        var volumePairs = operations
             .Where(f => f.Programmed_volume.HasValue && f.Real_Volume.HasValue)
             .Select(f => new { Prog = f.Programmed_volume!.Value, Real = f.Real_Volume!.Value })
             .ToList();
@@ -195,7 +217,7 @@ public class OverviewService : IOverviewService
 
         // Control microbiológico: por variable y por mes, cuántas visitas (Prebache / Postbache /
         // Seguimiento) quedaron en control (valor <= 10^2).
-        var microPoints = filas
+        var microPoints = measurements
             .Where(f => VisitSamplingTypes.Contains(f.Standard_Sampling_Type))
             .SelectMany(f => new (string Key, decimal? Value)[]
             {
@@ -213,9 +235,8 @@ public class OverviewService : IOverviewService
             Summary = new MeasurementFiltersResponseDto
             {
                 ThpsMedian = thpsMedian,
-                BsrInControlCount = filas.Count(f => f.BSR_planct is < 100m),
-                CategoryNace = filas.FirstNonEmpty(f => f.Date, f => f.Category_Nace)?.Value,
-                LevelAlarm = filas.FirstNonEmpty(f => f.Date, f => f.Level_Alarm)?.Value
+                BsrInControlCount = measurements.Count(f => f.BSR_planct is < 100m),
+                CategoryNace = categoryNace
             },
             FreeWater = freeWater,
             Dose = dose,

@@ -180,6 +180,10 @@ namespace DashboardApi.Controllers
                 // cada vez que el juego de valores cambia.
                 var metasPorClave = new Dictionary<(long Empresa, long Tanque, int Escenario), List<(DateOnly Fecha, MetaValores Valores)>>();
 
+                // Perfil físico por tanque (capacidad nominal, tipo de fluido): es un dato del
+                // activo, no del periodo. Gana el último valor no nulo visto en el archivo.
+                var perfilTanque = new Dictionary<long, (decimal? Capacidad, string? FluidType)>();
+
                 var years = new HashSet<int>();
                 var filasDuplicadas = 0;
                 var filasInsertadas = 0;
@@ -194,41 +198,22 @@ namespace DashboardApi.Controllers
                     return c;
                 }
 
-                // 3. Recorrer filas: una fila = un Measurement (+ un PhysicalChemistry si trae
-                //    datos fisicoquímicos). Guardado en dos pasadas por lote para no forzar a EF
-                //    a un MERGE lento: 1) INSERT de los Measurement → clave generada.
-                //    2) INSERT de los PhysicalChemistry con el MeasurementId ya generado.
-                const int tamanoLote = 2000;
+                // 3. Recorrer filas y armar en memoria:
+                //      - una TankDailyOperation por (empresa, tanque, fecha)  → datos operativos del día
+                //      - una Measurement por (operación, punto de muestreo)   → valores microbiológicos
+                //      - una PhysicalChemistry por cada fila con datos fisicoquímicos
+                //    Se guarda en tres pasadas al final (operations → measurements → physicalChemistries)
+                //    para resolver cada clave foránea ya generada.
                 _db.ChangeTracker.AutoDetectChangesEnabled = false;
 
-                var loteMediciones = new List<Measurement>();
-                var loteFisicoquimicos = new List<PhysicalChemistry?>();
+                var operations = new Dictionary<(long Company, long Tank, DateTime Date), TankDailyOperation>();
 
-                async Task GuardarLoteAsync()
-                {
-                    if (loteMediciones.Count == 0) return;
-
-                    _db.Measurements.AddRange(loteMediciones);
-                    await _db.SaveChangesAsync();
-
-                    var fisicoquimicos = new List<PhysicalChemistry>();
-                    for (var i = 0; i < loteMediciones.Count; i++)
-                    {
-                        var fq = loteFisicoquimicos[i];
-                        if (fq is null) continue;
-                        fq.MeasurementId = loteMediciones[i].Id;
-                        fisicoquimicos.Add(fq);
-                    }
-                    if (fisicoquimicos.Count > 0)
-                    {
-                        _db.PhysicalChemistries.AddRange(fisicoquimicos);
-                        await _db.SaveChangesAsync();
-                    }
-
-                    _db.ChangeTracker.Clear();
-                    loteMediciones.Clear();
-                    loteFisicoquimicos.Clear();
-                }
+                // Datos crudos de cada fila de medición; el OperationId se resuelve tras guardar las operaciones.
+                var rowMeasurements = new List<(
+                    (long Company, long Tank, DateTime Date) OperationKey,
+                    string SamplingPoint,
+                    Measurement Measurement,
+                    PhysicalChemistry? PhysicalChemistry)>();
 
                 foreach (var fila in filasCombinadas)
                 {
@@ -283,37 +268,58 @@ namespace DashboardApi.Controllers
 
                     string Str(string columna) => fila.GetValueOrDefault(columna) ?? string.Empty;
 
-                    var medicion = new Measurement
+                    // ── Operación diaria (una por empresa + tanque + fecha) ───────
+                    var operationKey = (companyId, tankId, fecha);
+                    if (!operations.TryGetValue(operationKey, out var operation))
                     {
-                        CompanyId = companyId,
-                        TankId = tankId,
-                        Date = fecha,
-                        BSR_planct = Dec("BSR_planct"),
-                        BPA_planct = Dec("BPA_planct"),
-                        BHT_planct = Dec("BHT_planct"),
-                        BAnT_planct = Dec("BAnT_planct"),
-                        Biocida_percent = Dec("%biocida"),
-                        THPS_percent = Dec("THPS_%"),
-                        Sampling_Point = Str("Punto Muestreo"),
-                        Injection_date = Fec("Fecha inyección"),
-                        Residual_THPS = Dec("Residual THPS"),
-                        Last_Biocida_Injection = Dec("ultima inyeccion biocida"),
-                        GSV_bls = Dec("gsv(bls)"),
-                        Estimated_FWV = Dec("FWV estimada"),
-                        Reported_FWV = Dec("FWV reportada"),
-                        Calculated_FWV = Dec("FWV calculada"),
-                        Increased_FWV = Dec("FWV incrementada"),
-                        API = Dec("API"),
-                        Scheduled_Dose = Dec("Dosis programada"),
-                        Actual_Injected_Dose = Dec("Dosis real inyectada"),
-                        Programmed_volume = Dec("Volumen programado"),
-                        Real_Volume = Dec("Volumen real"),
-                        Standard_Sampling_Type = Str("Tipo_Muestreo_norm"),
-                        Category_Nace = Str("Categoría_NACE_SP0775-23"),
-                        Level_Alarm = Str("Nivel_Alarma"),
-                        UploadId = upload.Id
-                    };
-                    var fisicoquimico = new PhysicalChemistry
+                        operations[operationKey] = new TankDailyOperation
+                        {
+                            CompanyId = companyId,
+                            TankId = tankId,
+                            Date = fecha,
+                            Injection_date = Fec("Fecha inyección"),
+                            Last_Biocida_Injection = Dec("ultima inyeccion biocida"),
+                            Scheduled_Dose = Dec("Dosis programada"),
+                            Actual_Injected_Dose = Dec("Dosis real inyectada"),
+                            Programmed_volume = Dec("Volumen programado"),
+                            Real_Volume = Dec("Volumen real"),
+                            GSV_bls = Dec("gsv(bls)"),
+                            API = Dec("API"),
+                            Estimated_FWV = Dec("FWV estimada"),
+                            Reported_FWV = Dec("FWV reportada"),
+                            Calculated_FWV = Dec("FWV calculada"),
+                            Increased_FWV = Dec("FWV incrementada"),
+                        };
+                    }
+                    else
+                    {
+                        // Otra fila de la misma fecha: completar solo los campos que aún estén vacíos.
+                        operation.Injection_date ??= Fec("Fecha inyección");
+                        operation.Last_Biocida_Injection ??= Dec("ultima inyeccion biocida");
+                        operation.Scheduled_Dose ??= Dec("Dosis programada");
+                        operation.Actual_Injected_Dose ??= Dec("Dosis real inyectada");
+                        operation.Programmed_volume ??= Dec("Volumen programado");
+                        operation.Real_Volume ??= Dec("Volumen real");
+                        operation.GSV_bls ??= Dec("gsv(bls)");
+                        operation.API ??= Dec("API");
+                        operation.Estimated_FWV ??= Dec("FWV estimada");
+                        operation.Reported_FWV ??= Dec("FWV reportada");
+                        operation.Calculated_FWV ??= Dec("FWV calculada");
+                        operation.Increased_FWV ??= Dec("FWV incrementada");
+                    }
+
+                    // ── Valores microbiológicos por punto de muestreo ─────────────
+                    var samplingPoint = Str("Punto Muestreo").Trim();
+                    var standardSampling = Str("Tipo_Muestreo_norm");
+                    var bsrPlanct = Dec("BSR_planct");
+                    var bpaPlanct = Dec("BPA_planct");
+                    var bhtPlanct = Dec("BHT_planct");
+                    var bantPlanct = Dec("BAnT_planct");
+                    var biocidaPercent = Dec("%biocida");
+                    var thpsPercent = Dec("THPS_%");
+                    var residualThps = Dec("Residual THPS");
+
+                    var physicalChemistry = new PhysicalChemistry
                     {
                         Temperature_C = Dec("Temperatura [°C]"),
                         H2S_mgL = Dec("H2S [mg/L]"),
@@ -326,13 +332,31 @@ namespace DashboardApi.Controllers
                         Maximum_Sting_Speed_ppm = Dec("Vel_Picadura_Máxima"),
                     };
 
-                    var tieneDatosFisicoquimicos =
-                        fisicoquimico.Temperature_C != null || fisicoquimico.H2S_mgL != null || fisicoquimico.pH != null ||
-                        fisicoquimico.Conductivity_uScm != null || fisicoquimico.Alkalinity_mgL != null || fisicoquimico.calcium_mgL != null ||
-                        fisicoquimico.BSW_percent != null || fisicoquimico.General_Corrosion_Rate_ppm != null || fisicoquimico.Maximum_Sting_Speed_ppm != null;
+                    var hasPhysicalChemistryData =
+                        physicalChemistry.Temperature_C != null || physicalChemistry.H2S_mgL != null || physicalChemistry.pH != null ||
+                        physicalChemistry.Conductivity_uScm != null || physicalChemistry.Alkalinity_mgL != null || physicalChemistry.calcium_mgL != null ||
+                        physicalChemistry.BSW_percent != null || physicalChemistry.General_Corrosion_Rate_ppm != null || physicalChemistry.Maximum_Sting_Speed_ppm != null;
 
-                    loteMediciones.Add(medicion);
-                    loteFisicoquimicos.Add(tieneDatosFisicoquimicos ? fisicoquimico : null);
+                    var hasMeasurementData =
+                        samplingPoint.Length > 0 || standardSampling.Length > 0 ||
+                        bsrPlanct != null || bpaPlanct != null || bhtPlanct != null || bantPlanct != null ||
+                        biocidaPercent != null || thpsPercent != null || residualThps != null;
+
+                    if (hasMeasurementData || hasPhysicalChemistryData)
+                    {
+                        rowMeasurements.Add((operationKey, samplingPoint, new Measurement
+                        {
+                            Sampling_Point = samplingPoint,
+                            Standard_Sampling_Type = standardSampling,
+                            BSR_planct = bsrPlanct,
+                            BPA_planct = bpaPlanct,
+                            BHT_planct = bhtPlanct,
+                            BAnT_planct = bantPlanct,
+                            Biocida_percent = biocidaPercent,
+                            THPS_percent = thpsPercent,
+                            Residual_THPS = residualThps,
+                        }, hasPhysicalChemistryData ? physicalChemistry : null));
+                    }
                     filasInsertadas++;
 
                     // ── Acumular valores de meta / perfil de esta fila ────────────
@@ -345,6 +369,12 @@ namespace DashboardApi.Controllers
                         var capacidad = Dec("Capacidad nominal");
                         var fluidoRaw = Str("Tipo de Fluido").Trim();
                         var fluido = string.IsNullOrWhiteSpace(fluidoRaw) ? null : fluidoRaw;
+
+                        if (capacidad is not null || fluido is not null)
+                        {
+                            perfilTanque.TryGetValue(tankId, out var actualPerfil);
+                            perfilTanque[tankId] = (capacidad ?? actualPerfil.Capacidad, fluido ?? actualPerfil.FluidType);
+                        }
 
                         void AcumularMeta(int scenarioId, decimal? aguaMin, decimal? aguaMax,
                             decimal? periodicidad, decimal? dosis, decimal? galones)
@@ -360,7 +390,7 @@ namespace DashboardApi.Controllers
                             lista.Add((periodo, new MetaValores(
                                 aguaMin, aguaMax,
                                 periodicidad.HasValue ? (int)Math.Round(periodicidad.Value) : null,
-                                dosis, galones, capacidad, fluido)));
+                                dosis, galones)));
                         }
 
                         AcumularMeta(escContractualId, aguaContractualMin, aguaContractualMax,
@@ -375,12 +405,81 @@ namespace DashboardApi.Controllers
                             null, Dec("dosis actual"), Dec("galones actuales"));
                     }
 
-                    if (loteMediciones.Count >= tamanoLote)
-                        await GuardarLoteAsync();
                 }
 
-                await GuardarLoteAsync();   // guarda el remanente que no completó un lote
+                // ── Guardar operaciones → obtener Id ──────────────────────────
+                if (operations.Count > 0)
+                {
+                    _db.TankDailyOperations.AddRange(operations.Values);
+                    await _db.SaveChangesAsync();
+                    _db.ChangeTracker.Clear();
+                }
+
+                // ── Resolver OperationId y deduplicar por (operación, punto de muestreo) ──
+                var measurementsByKey = new Dictionary<(long OperationId, string SamplingPoint), Measurement>();
+                var pendingPhysicalChemistries = new List<(Measurement Measurement, PhysicalChemistry PhysicalChemistry)>();
+
+                foreach (var (operationKey, samplingPoint, measurement, physicalChemistry) in rowMeasurements)
+                {
+                    var operationId = operations[operationKey].Id;
+                    var key = (operationId, samplingPoint);
+
+                    if (!measurementsByKey.TryGetValue(key, out var existing))
+                    {
+                        measurement.OperationId = operationId;
+                        measurementsByKey[key] = existing = measurement;
+                    }
+                    else
+                    {
+                        // Ya hay una medición para este punto de muestreo: completar los huecos (gana la primera fila).
+                        existing.BSR_planct ??= measurement.BSR_planct;
+                        existing.BPA_planct ??= measurement.BPA_planct;
+                        existing.BHT_planct ??= measurement.BHT_planct;
+                        existing.BAnT_planct ??= measurement.BAnT_planct;
+                        existing.Biocida_percent ??= measurement.Biocida_percent;
+                        existing.THPS_percent ??= measurement.THPS_percent;
+                        existing.Residual_THPS ??= measurement.Residual_THPS;
+                        if (string.IsNullOrEmpty(existing.Standard_Sampling_Type))
+                            existing.Standard_Sampling_Type = measurement.Standard_Sampling_Type;
+                    }
+
+                    if (physicalChemistry is not null)
+                        pendingPhysicalChemistries.Add((existing, physicalChemistry));
+                }
+
+                // ── Guardar mediciones → obtener Id ──────────────────────────
+                if (measurementsByKey.Count > 0)
+                {
+                    _db.Measurements.AddRange(measurementsByKey.Values);
+                    await _db.SaveChangesAsync();
+                }
+
+                // ── Guardar fisicoquímicos con el MeasurementId ya generado ──
+                if (pendingPhysicalChemistries.Count > 0)
+                {
+                    foreach (var (measurement, physicalChemistry) in pendingPhysicalChemistries)
+                        physicalChemistry.MeasurementId = measurement.Id;
+                    _db.PhysicalChemistries.AddRange(pendingPhysicalChemistries.Select(p => p.PhysicalChemistry));
+                    await _db.SaveChangesAsync();
+                }
+
+                _db.ChangeTracker.Clear();
                 _db.ChangeTracker.AutoDetectChangesEnabled = true;
+
+                // ── Actualizar perfil físico del tanque (capacidad nominal, tipo de fluido) ──
+                if (perfilTanque.Count > 0)
+                {
+                    var tanksAActualizar = await _db.Tanks
+                        .Where(t => perfilTanque.Keys.Contains(t.Id))
+                        .ToListAsync();
+                    foreach (var tank in tanksAActualizar)
+                    {
+                        var (capacidad, fluido) = perfilTanque[tank.Id];
+                        if (capacidad is not null) tank.NominalCapacity_bbl = capacidad;
+                        if (fluido is not null) tank.FluidType = fluido;
+                    }
+                    await _db.SaveChangesAsync();
+                }
 
                 if (filasInsertadas > 0)
                 {
@@ -438,12 +537,11 @@ namespace DashboardApi.Controllers
             }
         }
 
-        // Juego de valores de meta + perfil de un tanque para un escenario en una fecha.
+        // Juego de valores de meta de un tanque para un escenario en una fecha.
         // La igualdad de record (con nulls) es lo que decide si un tramo continúa o se corta.
         private sealed record MetaValores(
             decimal? WaterMin, decimal? WaterMax, int? Periodicity,
-            decimal? Dose, decimal? Gallons,
-            decimal? NominalCapacity, string? FluidType);
+            decimal? Dose, decimal? Gallons);
 
         // Conteo de filas por archivo de origen, para armar los avisos de repetidos.
         private sealed class ConteoArchivo
@@ -501,8 +599,6 @@ namespace DashboardApi.Controllers
                         Periodicity_BatchesPerMonth = actual.Periodicity,
                         Dose_ppm = actual.Dose,
                         EstimatedGallons_Month = actual.Gallons,
-                        NominalCapacity_bbl = actual.NominalCapacity,
-                        FluidType = actual.FluidType,
                     });
                 }
 

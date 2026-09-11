@@ -18,6 +18,7 @@ SET XACT_ABORT ON;   -- cualquier error aborta y hace rollback
 
 PRINT '=== Conteos ANTES ===';
 SELECT 'Measurements'        AS tabla, COUNT(*) AS filas FROM dbo.Measurements
+UNION ALL SELECT 'TankDailyOperations',  COUNT(*) FROM dbo.TankDailyOperations
 UNION ALL SELECT 'PhysicalChemistries', COUNT(*) FROM dbo.PhysicalChemistries
 UNION ALL SELECT 'TankTargetPeriods',   COUNT(*) FROM dbo.TankTargetPeriods
 UNION ALL SELECT 'Uploads',             COUNT(*) FROM dbo.Uploads
@@ -31,6 +32,7 @@ BEGIN TRAN;
     DELETE FROM dbo.PhysicalChemistries;
     DELETE FROM dbo.TankTargetPeriods;
     DELETE FROM dbo.Measurements;
+    DELETE FROM dbo.TankDailyOperations;
     DELETE FROM dbo.Uploads;
 
     /* ---------- CATÁLOGO (opcional) ----------
@@ -45,12 +47,14 @@ BEGIN TRAN;
     DBCC CHECKIDENT ('dbo.PhysicalChemistries', RESEED, 0) WITH NO_INFOMSGS;
     DBCC CHECKIDENT ('dbo.TankTargetPeriods',   RESEED, 0) WITH NO_INFOMSGS;
     DBCC CHECKIDENT ('dbo.Measurements',        RESEED, 0) WITH NO_INFOMSGS;
+    DBCC CHECKIDENT ('dbo.TankDailyOperations', RESEED, 0) WITH NO_INFOMSGS;
     DBCC CHECKIDENT ('dbo.Uploads',             RESEED, 0) WITH NO_INFOMSGS;
 
 COMMIT TRAN;
 
 PRINT '=== Conteos DESPUÉS ===';
 SELECT 'Measurements'        AS tabla, COUNT(*) AS filas FROM dbo.Measurements
+UNION ALL SELECT 'TankDailyOperations',  COUNT(*) FROM dbo.TankDailyOperations
 UNION ALL SELECT 'PhysicalChemistries', COUNT(*) FROM dbo.PhysicalChemistries
 UNION ALL SELECT 'TankTargetPeriods',   COUNT(*) FROM dbo.TankTargetPeriods
 UNION ALL SELECT 'Uploads',             COUNT(*) FROM dbo.Uploads

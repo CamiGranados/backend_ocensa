@@ -8,6 +8,7 @@ namespace DashboardApi.Data
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
         public DbSet<Measurement> Measurements { get; set; }
+        public DbSet<TankDailyOperation> TankDailyOperations { get; set; }
         public DbSet<Company> Companies { get; set; }
         public DbSet<Tank> Tanks { get; set; }
         public DbSet<Upload> Uploads { get; set; }
@@ -24,9 +25,35 @@ namespace DashboardApi.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Combined index — this is what makes each view's query fast
+            // Una operación diaria por empresa + tanque + fecha. Es la clave natural de la carga
+            // y lo que hace rápida la consulta de cada vista (filtra por tanque + rango de fechas).
+            modelBuilder.Entity<TankDailyOperation>()
+                .HasIndex(o => new { o.CompanyId, o.TankId, o.Date })
+                .IsUnique();
+
+            // Borrar una empresa/tanque no arrastra sus operaciones (evita rutas de cascada múltiples).
+            modelBuilder.Entity<TankDailyOperation>()
+                .HasOne(o => o.Company)
+                .WithMany()
+                .HasForeignKey(o => o.CompanyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<TankDailyOperation>()
+                .HasOne(o => o.Tank)
+                .WithMany()
+                .HasForeignKey(o => o.TankId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Un valor microbiológico por operación + punto de muestreo.
             modelBuilder.Entity<Measurement>()
-                .HasIndex(m => new { m.CompanyId, m.TankId, m.Date });
+                .HasIndex(m => new { m.OperationId, m.Sampling_Point })
+                .IsUnique();
+
+            modelBuilder.Entity<Measurement>()
+                .HasOne(m => m.Operation)
+                .WithMany(o => o.Measurements)
+                .HasForeignKey(m => m.OperationId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             // Escenarios de meta: "Contractual", "Línea base", "Actual" (nombre único).
             modelBuilder.Entity<TargetScenario>()
@@ -39,9 +66,21 @@ namespace DashboardApi.Data
                 .HasIndex(t => new { t.CompanyId, t.TankId, t.ScenarioId, t.ValidFrom })
                 .IsUnique();
 
-            modelBuilder.Entity<TankTargetPeriod>()
+            modelBuilder.Entity<Tank>()
                 .Property(t => t.FluidType)
                 .HasMaxLength(200);
+
+            // Categoría NACE SP0775-23: columna computada y persistida por SQL Server
+            // a partir de General_Corrosion_Rate_ppm (no se calcula en C#).
+            modelBuilder.Entity<PhysicalChemistry>()
+                .Property(p => p.Category_Nace)
+                .HasComputedColumnSql(
+                    "CASE WHEN [General_Corrosion_Rate_ppm] IS NULL THEN NULL " +
+                    "WHEN [General_Corrosion_Rate_ppm] < 0.025 THEN 'BAJA' " +
+                    "WHEN [General_Corrosion_Rate_ppm] <= 0.12 THEN 'MODERADA' " +
+                    "WHEN [General_Corrosion_Rate_ppm] <= 0.25 THEN 'ALTA' " +
+                    "ELSE 'SEVERA' END",
+                    stored: true);
 
             // Relaciones explícitas con Restrict: borrar una empresa/tanque/escenario
             // no debe arrastrar sus metas (además evita rutas de cascada múltiples en SQL Server).

@@ -11,7 +11,6 @@ public class AnalysisCalculationResponse
     public MedianRetentionDto MedianRetention { get; set; } = new();
     public MicrobiologicalEventsDto MicrobiologicalEvents { get; set; } = new();
     public NaceCategoryDto NaceCategory { get; set; } = new();
-    public SentinelIndexDto SentinelIndex { get; set; } = new();
     public DateTime CalculationDate { get; set; }
 }
 
@@ -31,18 +30,10 @@ public class MicrobiologicalEventsDto
     public int TotalEventsWithData { get; set; }  // 1.187
 }
 
-// DTO: NACE Category (variable "Categoría [NACE SP0775-23]_biocupon")
+// DTO: NACE Category (calculada en PhysicalChemistry.Category_Nace a partir de la velocidad de corrosión)
 public class NaceCategoryDto
 {
     public string Category { get; set; } = "Sin datos"; // "MODERADA"
     public string TqCode { get; set; } = string.Empty;  // "TQ55000"
     public DateTime? LastDate { get; set; }
-}
-
-// DTO: Sentinel Index (variable "Alarma_ivel")
-public class SentinelIndexDto
-{
-    public string Level { get; set; } = "Sin datos"; // "Media"
-    public string TqCode { get; set; } = string.Empty;
-    public DateTime? CalculationDate { get; set; }
 }

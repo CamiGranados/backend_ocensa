@@ -34,19 +34,4 @@ public static class EnumerableExtensions
         }
         return null;
     }
-
-    /// <summary>Sobrecarga para columnas de texto: descarta null, vacío y espacios.</summary>
-    public static LastValue<string>? FirstNonEmpty<T>(
-        this IEnumerable<T> orderedDesc,
-        Func<T, DateTime> dateSelector,
-        Func<T, string?> valueSelector)
-    {
-        foreach (var item in orderedDesc)
-        {
-            var value = valueSelector(item);
-            if (!string.IsNullOrWhiteSpace(value))
-                return new LastValue<string>(value.Trim(), dateSelector(item));
-        }
-        return null;
-    }
 }

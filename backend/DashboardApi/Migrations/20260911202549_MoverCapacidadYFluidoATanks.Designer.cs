@@ -4,6 +4,7 @@ using DashboardApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DashboardApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260911202549_MoverCapacidadYFluidoATanks")]
+    partial class MoverCapacidadYFluidoATanks
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -140,11 +143,6 @@ namespace DashboardApi.Migrations
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
 
-                    b.Property<string>("Category_Nace")
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("nvarchar(max)")
-                        .HasComputedColumnSql("CASE WHEN [General_Corrosion_Rate_ppm] IS NULL THEN NULL WHEN [General_Corrosion_Rate_ppm] < 0.025 THEN 'BAJA' WHEN [General_Corrosion_Rate_ppm] <= 0.12 THEN 'MODERADA' WHEN [General_Corrosion_Rate_ppm] <= 0.25 THEN 'ALTA' ELSE 'SEVERA' END", true);
-
                     b.Property<decimal?>("Conductivity_uScm")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
@@ -228,6 +226,11 @@ namespace DashboardApi.Migrations
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
 
+                    b.Property<string>("Category_Nace")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
                     b.Property<long>("CompanyId")
                         .HasColumnType("bigint");
 
@@ -252,6 +255,11 @@ namespace DashboardApi.Migrations
                     b.Property<decimal?>("Last_Biocida_Injection")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Level_Alarm")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<decimal?>("Programmed_volume")
                         .HasPrecision(18, 4)

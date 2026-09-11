@@ -31,26 +31,26 @@ public class MicroService : IMicroService
 
         var query = _context.Measurements
             .AsNoTracking()
-            .Where(m => m.TankId == request.TankId);
+            .Where(m => m.Operation!.TankId == request.TankId);
 
         if (request.Years?.Length > 0)
         {
             var years = request.Years;
-            query = query.Where(m => years.Contains(m.Date.Year));
+            query = query.Where(m => years.Contains(m.Operation!.Date.Year));
         }
 
         if (request.Months?.Length > 0)
         {
             var months = request.Months;
-            query = query.Where(m => months.Contains(m.Date.Month));
+            query = query.Where(m => months.Contains(m.Operation!.Date.Month));
         }
 
         var items = await query
-            .OrderByDescending(m => m.Date)
+            .OrderByDescending(m => m.Operation!.Date)
             .ThenByDescending(m => m.Id)
             .Select(m => new MicroRecordDto
             {
-                Date = m.Date,
+                Date = m.Operation!.Date,
                 BsrPlanct = m.BSR_planct,
                 BpaPlanct = m.BPA_planct,
                 BhtPlanct = m.BHT_planct,

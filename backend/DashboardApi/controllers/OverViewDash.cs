@@ -66,29 +66,29 @@ public class TanksController : ControllerBase
             return Ok(Array.Empty<object>());
         }
 
-        var query = _context.Measurements.Where(m => m.TankId == tank.Id);
+        var query = _context.TankDailyOperations.Where(o => o.TankId == tank.Id);
 
         // años: si no mandan ninguno, trae todos (no filtra)
         if (years != null && years.Length > 0)
         {
-            query = query.Where(m => years.Contains(m.Date.Year));
+            query = query.Where(o => years.Contains(o.Date.Year));
         }
         // meses: si no mandan ninguno, trae todos (no filtra)
         if (months != null && months.Length > 0)
         {
-            query = query.Where(m => months.Contains(m.Date.Month));
+            query = query.Where(o => months.Contains(o.Date.Month));
         }
 
         var filas = await query
-            .OrderBy(m => m.Date)
-            .Select(m => new
+            .OrderBy(o => o.Date)
+            .Select(o => new
             {
-                m.Date,
-                m.Estimated_FWV,
-                m.Reported_FWV,
-                m.Calculated_FWV,
-                m.Increased_FWV,
-                m.GSV_bls
+                o.Date,
+                o.Estimated_FWV,
+                o.Reported_FWV,
+                o.Calculated_FWV,
+                o.Increased_FWV,
+                o.GSV_bls
             })
             .ToListAsync();
 

@@ -30,7 +30,6 @@ public class AnalysisService : IAnalysisService
                 MedianRetention = new MedianRetentionDto { Percentage = 0, TotalRecords = 0 },
                 MicrobiologicalEvents = new MicrobiologicalEventsDto { Percentage = 0, InControlEvents = 0, TotalEventsWithData = 0 },
                 NaceCategory = new NaceCategoryDto { TqCode = tankId },
-                SentinelIndex = new SentinelIndexDto { TqCode = tankId },
                 CalculationDate = DateTime.UtcNow
             };
         }
@@ -40,18 +39,29 @@ public class AnalysisService : IAnalysisService
             MedianRetention = await CalculateMedianRetention(tank.Id, years),
             MicrobiologicalEvents = await CalculateMicrobiologicalEvents(tank.Id, years),
             NaceCategory = await CalculateNaceCategory(tank.Id, years, tankId),
-            SentinelIndex = await CalculateSentinelIndex(tank.Id, years, tankId),
             CalculationDate = DateTime.UtcNow
         };
     }
 
-    private IQueryable<Measurement> QueryTank(long tankId, int[] years)
+    private IQueryable<Measurement> QueryMeasurements(long tankId, int[] years)
     {
-        var query = _context.Measurements.Where(m => m.TankId == tankId);
+        var query = _context.Measurements.Where(m => m.Operation!.TankId == tankId);
 
         if (years != null && years.Length > 0)
         {
-            query = query.Where(m => years.Contains(m.Date.Year));
+            query = query.Where(m => years.Contains(m.Operation!.Date.Year));
+        }
+
+        return query;
+    }
+
+    private IQueryable<PhysicalChemistry> QueryPhysicalChemistries(long tankId, int[] years)
+    {
+        var query = _context.PhysicalChemistries.Where(pc => pc.Measurement!.Operation!.TankId == tankId);
+
+        if (years != null && years.Length > 0)
+        {
+            query = query.Where(pc => years.Contains(pc.Measurement!.Operation!.Date.Year));
         }
 
         return query;
@@ -60,7 +70,7 @@ public class AnalysisService : IAnalysisService
     // Retención mediana de THPS: mediana de Measurement.THPS_percent
     private async Task<MedianRetentionDto> CalculateMedianRetention(long tankId, int[] years)
     {
-        var values = await QueryTank(tankId, years)
+        var values = await QueryMeasurements(tankId, years)
             .Where(m => m.THPS_percent != null)
             .Select(m => m.THPS_percent!.Value)
             .ToListAsync();
@@ -78,15 +88,15 @@ public class AnalysisService : IAnalysisService
     // un evento está "en control" cuando su BSR_planct (misma compañía y fecha) es menor a 10^2.
     private async Task<MicrobiologicalEventsDto> CalculateMicrobiologicalEvents(long tankId, int[] years)
     {
-        var eventKeys = await QueryTank(tankId, years)
+        var eventKeys = await QueryMeasurements(tankId, years)
             .Where(m => m.Standard_Sampling_Type == "Prebache")
-            .Select(m => new { m.CompanyId, m.Date })
+            .Select(m => new { m.Operation!.CompanyId, m.Operation!.Date })
             .Distinct()
             .ToListAsync();
 
-        var bsrValues = await QueryTank(tankId, years)
+        var bsrValues = await QueryMeasurements(tankId, years)
             .Where(m => m.BSR_planct != null)
-            .Select(m => new { m.CompanyId, m.Date, m.BSR_planct })
+            .Select(m => new { m.Operation!.CompanyId, m.Operation!.Date, m.BSR_planct })
             .ToListAsync();
 
         var bsrByKey = bsrValues
@@ -116,35 +126,21 @@ public class AnalysisService : IAnalysisService
         };
     }
 
-    // Última categoría NACE: valor más reciente de Measurement.Category_Nace
+    // Última categoría NACE: valor más reciente de PhysicalChemistry.Category_Nace
+    // (columna computada a partir de la velocidad de corrosión general).
     private async Task<NaceCategoryDto> CalculateNaceCategory(long tankId, int[] years, string tqCode)
     {
-        var last = await QueryTank(tankId, years)
-            .Where(m => m.Category_Nace != "")
-            .OrderByDescending(m => m.Date)
+        var last = await QueryPhysicalChemistries(tankId, years)
+            .Where(pc => pc.Category_Nace != null)
+            .OrderByDescending(pc => pc.Measurement!.Operation!.Date)
+            .Select(pc => new { pc.Category_Nace, pc.Measurement!.Operation!.Date })
             .FirstOrDefaultAsync();
 
         return new NaceCategoryDto
         {
-            Category = last?.Category_Nace is { Length: > 0 } categoria ? categoria : "Sin datos",
+            Category = last?.Category_Nace ?? "Sin datos",
             TqCode = tqCode,
             LastDate = last?.Date
-        };
-    }
-
-    // Índice centinela más reciente: valor más reciente de Measurement.Level_Alarm
-    private async Task<SentinelIndexDto> CalculateSentinelIndex(long tankId, int[] years, string tqCode)
-    {
-        var last = await QueryTank(tankId, years)
-            .Where(m => m.Level_Alarm != "")
-            .OrderByDescending(m => m.Date)
-            .FirstOrDefaultAsync();
-
-        return new SentinelIndexDto
-        {
-            Level = last?.Level_Alarm is { Length: > 0 } nivel ? nivel : "Sin datos",
-            TqCode = tqCode,
-            CalculationDate = last?.Date
         };
     }
 

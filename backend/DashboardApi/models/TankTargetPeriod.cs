@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace DashboardApi.Models
 {
@@ -19,8 +20,11 @@ namespace DashboardApi.Models
         [Key]
         public long Id { get; set; }
 
+        [ForeignKey("Company")]
         public long CompanyId { get; set; }
+        [ForeignKey("Tank")]
         public long TankId { get; set; }
+        [ForeignKey("Scenario")]
         public int ScenarioId { get; set; }
 
         // Inicio del tramo (inclusive).
@@ -39,11 +43,6 @@ namespace DashboardApi.Models
 
         public decimal? Dose_ppm { get; set; }
         public decimal? EstimatedGallons_Month { get; set; }
-
-        // Perfil "físico" del tanque en ese tramo. No depende del escenario: se repite
-        // igual en las filas Contractual / Línea base / Actual del mismo tanque y periodo.
-        public decimal? NominalCapacity_bbl { get; set; }
-        public string? FluidType { get; set; }
 
         public Company Company { get; set; } = null!;
         public Tank Tank { get; set; } = null!;

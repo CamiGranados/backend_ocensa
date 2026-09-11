@@ -16,6 +16,7 @@ SET XACT_ABORT ON;
 
 PRINT '=== ANTES ===';
 SELECT 'Measurements' t, COUNT(*) n FROM dbo.Measurements
+UNION ALL SELECT 'TankDailyOperations',  COUNT(*) FROM dbo.TankDailyOperations
 UNION ALL SELECT 'PhysicalChemistries', COUNT(*) FROM dbo.PhysicalChemistries
 UNION ALL SELECT 'TankTargetPeriods',   COUNT(*) FROM dbo.TankTargetPeriods
 UNION ALL SELECT 'Uploads',             COUNT(*) FROM dbo.Uploads
@@ -29,6 +30,7 @@ BEGIN TRAN;
     DELETE FROM dbo.PhysicalChemistries;
     DELETE FROM dbo.TankTargetPeriods;
     DELETE FROM dbo.Measurements;
+    DELETE FROM dbo.TankDailyOperations;
     DELETE FROM dbo.Uploads;
     DELETE FROM dbo.Companies;
     DELETE FROM dbo.Tanks;
@@ -37,6 +39,7 @@ BEGIN TRAN;
     DBCC CHECKIDENT ('dbo.PhysicalChemistries', RESEED, 0) WITH NO_INFOMSGS;
     DBCC CHECKIDENT ('dbo.TankTargetPeriods',   RESEED, 0) WITH NO_INFOMSGS;
     DBCC CHECKIDENT ('dbo.Measurements',        RESEED, 0) WITH NO_INFOMSGS;
+    DBCC CHECKIDENT ('dbo.TankDailyOperations', RESEED, 0) WITH NO_INFOMSGS;
     DBCC CHECKIDENT ('dbo.Uploads',             RESEED, 0) WITH NO_INFOMSGS;
     DBCC CHECKIDENT ('dbo.Companies',           RESEED, 0) WITH NO_INFOMSGS;
     DBCC CHECKIDENT ('dbo.Tanks',               RESEED, 0) WITH NO_INFOMSGS;
@@ -46,6 +49,7 @@ COMMIT TRAN;
 
 PRINT '=== DESPUES ===';
 SELECT 'Measurements' t, COUNT(*) n FROM dbo.Measurements
+UNION ALL SELECT 'TankDailyOperations',  COUNT(*) FROM dbo.TankDailyOperations
 UNION ALL SELECT 'PhysicalChemistries', COUNT(*) FROM dbo.PhysicalChemistries
 UNION ALL SELECT 'TankTargetPeriods',   COUNT(*) FROM dbo.TankTargetPeriods
 UNION ALL SELECT 'Uploads',             COUNT(*) FROM dbo.Uploads
