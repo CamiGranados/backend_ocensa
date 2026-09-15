@@ -376,6 +376,13 @@ namespace DashboardApi.Controllers
                             perfilTanque[tankId] = (capacidad ?? actualPerfil.Capacidad, fluido ?? actualPerfil.FluidType);
                         }
 
+                        // Redondea a 4 decimales (misma escala que decimal(18,4) en BD). Sin esto,
+                        // ruido de precisión al parsear el Excel (p. ej. 170.09659999999998 vs
+                        // 170.0966) hace que dos filas con el mismo valor visible se comparen como
+                        // distintas y se corte un TankTargetPeriod donde no hubo ningún cambio real.
+                        static decimal? Redondear(decimal? valor) =>
+                            valor.HasValue ? Math.Round(valor.Value, 4, MidpointRounding.AwayFromZero) : null;
+
                         void AcumularMeta(int scenarioId, decimal? aguaMin, decimal? aguaMax,
                             decimal? periodicidad, decimal? dosis, decimal? galones)
                         {
@@ -388,13 +395,13 @@ namespace DashboardApi.Controllers
                                 metasPorClave[clave] = lista = new List<(DateOnly, MetaValores)>();
 
                             lista.Add((periodo, new MetaValores(
-                                aguaMin, aguaMax,
+                                Redondear(aguaMin), Redondear(aguaMax),
                                 periodicidad.HasValue ? (int)Math.Round(periodicidad.Value) : null,
-                                dosis, galones)));
+                                Redondear(dosis), Redondear(galones))));
                         }
 
                         AcumularMeta(escContractualId, aguaContractualMin, aguaContractualMax,
-                            Dec("periodicidad contractual"), Dec("Dosis oferta económica(ppm)"), Dec("galones estimados mensuales"));
+                            Dec("periodicidad contractual"), Dec("dosis oferta económica(ppm)"), Dec("galones estimados mensuales"));
 
                         var aguaLineaBase = Dec("Agua estimada linea base");
                         AcumularMeta(escLineaBaseId, aguaLineaBase, aguaLineaBase,
@@ -582,6 +589,7 @@ namespace DashboardApi.Controllers
 
                 MetaValores? actual = null;
                 DateOnly desde = default;
+                DateOnly ultimaFecha = default; // última fecha con dato real del tramo vigente ("actual")
 
                 void Cerrar(DateOnly? hasta)
                 {
@@ -619,11 +627,16 @@ namespace DashboardApi.Controllers
                         }
                         else
                         {
-                            Cerrar(fecha);
+                            // ValidTo = última fecha con dato del valor saliente, no la fecha
+                            // del primer dato del valor entrante. Si no hay filas entre ambas
+                            // fechas, queda un hueco a propósito: no hay información para
+                            // ese rango, no se debe estirar el valor anterior.
+                            Cerrar(ultimaFecha);
                             actual = valores;
                             desde = fecha;
                         }
                     }
+                    ultimaFecha = fecha;
                 }
                 if (actual is not null) Cerrar(null);
             }

@@ -13,6 +13,7 @@
 
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
+SET QUOTED_IDENTIFIER ON;   -- requerido: PhysicalChemistries tiene una columna computada
 
 PRINT '=== ANTES ===';
 SELECT 'Measurements' t, COUNT(*) n FROM dbo.Measurements

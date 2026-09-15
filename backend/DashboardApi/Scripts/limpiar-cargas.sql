@@ -15,6 +15,7 @@
 
 SET NOCOUNT ON;
 SET XACT_ABORT ON;   -- cualquier error aborta y hace rollback
+SET QUOTED_IDENTIFIER ON;  -- requerido por la columna calculada de Tanks (CategoryNace)
 
 PRINT '=== Conteos ANTES ===';
 SELECT 'Measurements'        AS tabla, COUNT(*) AS filas FROM dbo.Measurements

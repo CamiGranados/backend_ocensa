@@ -37,7 +37,7 @@
     { "nombre": "Capacidad nominal", "tipo": "decimal", "obligatorio": false },
     { "nombre": "Agua estimada contractual", "tipo": "string", "obligatorio": false },
     { "nombre": "periodicidad contractual", "tipo": "decimal", "obligatorio": false },
-    { "nombre": "Dosis oferta económica(ppm)", "tipo": "decimal", "obligatorio": false},
+    { "nombre": "dosis oferta económica(ppm)", "tipo": "decimal", "obligatorio": false},
     { "nombre": "galones estimados mensuales", "tipo": "decimal", "obligatorio": false},
     { "nombre": "Agua estimada linea base", "tipo": "decimal", "obligatorio": false },
     { "nombre": "Periodicidad linea base", "tipo": "decimal", "obligatorio": false },
