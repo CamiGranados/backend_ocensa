@@ -45,6 +45,12 @@ public class MicroService : IMicroService
             query = query.Where(m => months.Contains(m.Operation!.Date.Month));
         }
 
+        if (request.Companies?.Length > 0)
+        {
+            var companies = request.Companies;
+            query = query.Where(m => companies.Contains(m.Operation!.CompanyId));
+        }
+
         var items = await query
             .OrderByDescending(m => m.Operation!.Date)
             .ThenByDescending(m => m.Id)

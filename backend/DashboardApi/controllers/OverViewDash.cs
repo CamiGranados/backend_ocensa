@@ -13,17 +13,20 @@ public class TanksController : ControllerBase
     private readonly IThpsReviewService _thpsReviewService;
     private readonly IMicroService _microService;
     private readonly IPhysicalChemistryService _physicalChemistryService;
+    private readonly IMonthlyInjectionsService _monthlyInjectionsService;
 
     public TanksController(
         AppDbContext context,
         IThpsReviewService thpsReviewService,
         IMicroService microService,
-        IPhysicalChemistryService physicalChemistryService)
+        IPhysicalChemistryService physicalChemistryService,
+        IMonthlyInjectionsService monthlyInjectionsService)
     {
         _context = context;
         _thpsReviewService = thpsReviewService;
         _microService = microService;
         _physicalChemistryService = physicalChemistryService;
+        _monthlyInjectionsService = monthlyInjectionsService;
     }
 
     // GET: api/tanks
@@ -32,6 +35,14 @@ public class TanksController : ControllerBase
     {
         var tanks = await _context.Tanks.ToListAsync();
         return Ok(tanks);
+    }
+
+    // GET: api/tanks/listCompanies
+    [HttpGet("listCompanies")]
+    public async Task<ActionResult<IEnumerable<Company>>> GetCompanies()
+    {
+        var companies = await _context.Companies.ToListAsync();
+        return Ok(companies);
     }
 
     // GET: api/tanks/years
@@ -58,7 +69,8 @@ public class TanksController : ControllerBase
     public async Task<ActionResult> GetMeasurements(
         [FromQuery] long tankId,
         [FromQuery] int[]? years = null,
-        [FromQuery] int[]? months = null)
+        [FromQuery] int[]? months = null,
+        [FromQuery] long[]? companies = null)
     {
         var tank = await _context.Tanks.FirstOrDefaultAsync(t => t.Id == tankId);
         if (tank == null)
@@ -77,6 +89,11 @@ public class TanksController : ControllerBase
         if (months != null && months.Length > 0)
         {
             query = query.Where(o => months.Contains(o.Date.Month));
+        }
+        // empresas: si no mandan ninguna, trae todas (no filtra)
+        if (companies != null && companies.Length > 0)
+        {
+            query = query.Where(o => companies.Contains(o.CompanyId));
         }
 
         var filas = await query
@@ -142,6 +159,16 @@ public class TanksController : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await _physicalChemistryService.GetPhysicalChemistryAsync(request, cancellationToken);
+        return Ok(result);
+    }
+
+    // POST: api/tanks/monthly-injections
+    [HttpPost("monthly-injections")]
+    public async Task<ActionResult<List<DashboardApi.DTOs.MonthlyInjectionDetailDto>>> GetMonthlyInjections(
+        [FromBody] DashboardApi.DTOs.MonthlyInjectionsRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _monthlyInjectionsService.GetMonthlyInjectionsAsync(request, cancellationToken);
         return Ok(result);
     }
 }

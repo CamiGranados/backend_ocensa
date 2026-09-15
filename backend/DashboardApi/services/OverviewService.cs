@@ -46,6 +46,13 @@ public class OverviewService : IOverviewService
             medQuery = medQuery.Where(m => months.Contains(m.Operation!.Date.Month));
         }
 
+        if (request.Companies?.Length > 0)
+        {
+            var companies = request.Companies;
+            opQuery = opQuery.Where(o => companies.Contains(o.CompanyId));
+            medQuery = medQuery.Where(m => companies.Contains(m.Operation!.CompanyId));
+        }
+
         var operations = await opQuery
             .AsNoTracking()
             .OrderByDescending(o => o.Date)
@@ -88,7 +95,7 @@ public class OverviewService : IOverviewService
         // ese mes (por escenario) y se acumula su meta. Meses sin ningún dato cargado (antes del
         // primer registro, o todavía sin subir) no cuentan como meta: no se les puede exigir haber
         // medido/dosificado ahí.
-        var allPeriods = await GetTargetPeriodsAsync(request.TankId);
+        var allPeriods = await GetTargetPeriodsAsync(request.TankId, request.Companies);
         var contractualPeriods = allPeriods.Where(p => p.ScenarioName == ContractualScenarioName).ToList();
         var baselinePeriods = allPeriods.Where(p => p.ScenarioName == BaselineScenarioName).ToList();
 
@@ -374,11 +381,18 @@ public class OverviewService : IOverviewService
     // Trae todos los TankTargetPeriod del tanque, de los 3 escenarios (sin acotar por fecha: el
     // acotado por mes lo hace MatchedMonthlyValues / el filtro de targetPeriods en GetSummaryAsync,
     // mes a mes, contra los meses ejecutados).
-    private async Task<List<TankTargetPeriodRow>> GetTargetPeriodsAsync(long tankId)
+    private async Task<List<TankTargetPeriodRow>> GetTargetPeriodsAsync(long tankId, long[]? companies)
     {
-        return await _context.TankTargetPeriods
+        var query = _context.TankTargetPeriods
             .AsNoTracking()
-            .Where(p => p.TankId == tankId)
+            .Where(p => p.TankId == tankId);
+
+        if (companies?.Length > 0)
+        {
+            query = query.Where(p => companies.Contains(p.CompanyId));
+        }
+
+        return await query
             .Select(p => new TankTargetPeriodRow(
                 p.Scenario.Name, p.ValidFrom, p.ValidTo, p.Periodicity_BatchesPerMonth, p.Dose_ppm,
                 p.EstimatedGallons_Month, p.EstimatedWaterMin_bbl, p.EstimatedWaterMax_bbl))

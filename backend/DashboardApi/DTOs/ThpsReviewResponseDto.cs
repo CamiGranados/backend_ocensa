@@ -17,6 +17,7 @@ public class ThpsReviewSummaryDto
     public decimal? ResidualMedian { get; set; }
     public decimal? EffectiveDoseMedian { get; set; }
     public decimal? RetentionMedian { get; set; }
+    public decimal? CalculatedFwvMedian { get; set; }
     public int EventsWithRealDoseCount { get; set; }
     public int TotalRecords { get; set; }
 }

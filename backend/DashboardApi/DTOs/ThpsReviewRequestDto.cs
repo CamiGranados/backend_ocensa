@@ -11,6 +11,8 @@ public class ThpsReviewRequestDto : IValidatableObject
 
     public int[]? Months { get; set; }
 
+    public long[]? Companies { get; set; }
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if (Months != null && Months.Any(m => m is < 1 or > 12))

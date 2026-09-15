@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace DashboardApi.DTOs;
 
-public class MicroRequestDto : IValidatableObject
+public class MonthlyInjectionsRequestDto : IValidatableObject
 {
     [Required(ErrorMessage = "tankId es obligatorio.")]
     public long? TankId { get; set; }

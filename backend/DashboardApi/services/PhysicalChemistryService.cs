@@ -45,6 +45,12 @@ public class PhysicalChemistryService : IPhysicalChemistryService
             query = query.Where(pc => months.Contains(pc.Measurement!.Operation!.Date.Month));
         }
 
+        if (request.Companies?.Length > 0)
+        {
+            var companies = request.Companies;
+            query = query.Where(pc => companies.Contains(pc.Measurement!.Operation!.CompanyId));
+        }
+
         var items = await query
             .OrderByDescending(pc => pc.Measurement!.Operation!.Date)
             .ThenByDescending(pc => pc.Id)

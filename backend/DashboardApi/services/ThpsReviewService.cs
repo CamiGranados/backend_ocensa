@@ -51,6 +51,13 @@ public class ThpsReviewService : IThpsReviewService
             opQuery = opQuery.Where(o => months.Contains(o.Date.Month));
         }
 
+        if (request.Companies?.Length > 0)
+        {
+            var companies = request.Companies;
+            medQuery = medQuery.Where(m => companies.Contains(m.Operation!.CompanyId));
+            opQuery = opQuery.Where(o => companies.Contains(o.CompanyId));
+        }
+
         var totalRecords = await medQuery.CountAsync(cancellationToken);
 
         var residualValues = await medQuery
@@ -68,6 +75,11 @@ public class ThpsReviewService : IThpsReviewService
             .Select(m => m.THPS_percent!.Value)
             .ToListAsync(cancellationToken);
 
+        var calculatedFwvValues = await opQuery
+            .Where(o => o.Calculated_FWV != null)
+            .Select(o => o.Calculated_FWV!.Value)
+            .ToListAsync(cancellationToken);
+
         var eventsWithRealDoseCount = await medQuery
             .CountAsync(m => m.Standard_Sampling_Type == "Prebache", cancellationToken);
 
@@ -76,6 +88,7 @@ public class ThpsReviewService : IThpsReviewService
             ResidualMedian = Median(residualValues),
             EffectiveDoseMedian = Median(effectiveDoseValues),
             RetentionMedian = Median(retentionValues),
+            CalculatedFwvMedian = Median(calculatedFwvValues),
             EventsWithRealDoseCount = eventsWithRealDoseCount,
             TotalRecords = totalRecords
         };
