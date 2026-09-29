@@ -29,6 +29,8 @@ builder.Services.AddScoped<DashboardApi.Services.IThpsReviewService, DashboardAp
 builder.Services.AddScoped<DashboardApi.Services.IMicroService, DashboardApi.Services.MicroService>();
 builder.Services.AddScoped<DashboardApi.Services.IPhysicalChemistryService, DashboardApi.Services.PhysicalChemistryService>();
 builder.Services.AddScoped<DashboardApi.Services.IMonthlyInjectionsService, DashboardApi.Services.MonthlyInjectionsService>();
+builder.Services.AddScoped<DashboardApi.Services.IBiocideControlService, DashboardApi.Services.BiocideControlService>();
+builder.Services.AddScoped<DashboardApi.Services.IBiocideEfficacyService, DashboardApi.Services.BiocideEfficacyService>();
 builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(
     builder.Configuration.GetConnectionString("DefaultConnection"),
     sql => sql.CommandTimeout(180)));

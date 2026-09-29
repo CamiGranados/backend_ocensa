@@ -131,21 +131,25 @@ public class OverviewService : IOverviewService
         decimal? periodicityTarget = SumOrNull(
             MatchedMonthlyValues(measurementMonths, contractualPeriods, p => p.Periodicity.HasValue ? (decimal?)p.Periodicity.Value : null));
 
-        // Dosis y volumen usan los meses con operación diaria (dosis/volumen se registran a diario,
-        // no solo en campañas de muestreo). Se suman igual que periodicidad: N meses de meta
-        // (contractual o línea base, según el caso) contra la suma de lo ejecutado en esos meses.
-        decimal? doseExecuted = SumOrNull(operations.Select(o => o.Actual_Injected_Dose));
-        decimal? doseTarget = SumOrNull(MatchedMonthlyValues(operationMonths, contractualPeriods, p => p.Dose));
-
+        // Volumen usa los meses con operación diaria: se suma (es una cantidad acumulable), N meses
+        // de meta contractual contra la suma de lo ejecutado en esos meses.
         decimal? volumeExecuted = SumOrNull(operations.Select(o => o.Real_Volume));
         decimal? volumeTarget = SumOrNull(MatchedMonthlyValues(operationMonths, contractualPeriods, p => p.Gallons));
 
-        // Metas de línea base (mismo cálculo, escenario "Línea base") que alimentan la respuesta de Dose.
-        decimal? doseTargetBaseline = SumOrNull(MatchedMonthlyValues(operationMonths, baselinePeriods, p => p.Dose));
+        // Dosis (ppm) es una concentración, no una cantidad: se promedia (media aritmética) en vez
+        // de acumularse, si no la suma da una cifra desproporcionada (Σ de decenas/cientos de
+        // registros diarios). Executed promedia cada registro de dosis real inyectada con dato;
+        // Target promedia la meta contractual de los meses con operación diaria.
+        decimal? doseExecuted = AverageOrNull(operations.Select(o => o.Actual_Injected_Dose));
+        decimal? doseTarget = AverageOrNull(MatchedMonthlyValues(operationMonths, contractualPeriods, p => p.Dose));
+
+        // Meta de línea base de dosis (escenario "Línea base") que alimenta la respuesta de Dose.
+        decimal? doseTargetBaseline = AverageOrNull(MatchedMonthlyValues(operationMonths, baselinePeriods, p => p.Dose));
         decimal? volumeTargetBaseline = SumOrNull(MatchedMonthlyValues(operationMonths, baselinePeriods, p => p.Gallons));
 
         // TargetDose/TargetVolumen no son la meta cruda: son la brecha entre lo pactado en línea
-        // base y lo realmente ejecutado (Σ meta línea base - Σ ejecutado real).
+        // base y lo realmente ejecutado. TargetDose usa promedios (ppm no se suma); TargetVolumen
+        // usa sumas (Σ meta línea base - Σ ejecutado real).
         decimal? doseGapBaseline = Gap(doseTargetBaseline, doseExecuted);
         decimal? volumeGapBaseline = Gap(volumeTargetBaseline, volumeExecuted);
 
@@ -435,6 +439,18 @@ public class OverviewService : IOverviewService
     // Suma ignorando nulos; null si la lista está vacía (para distinguir "sin meta" de "meta 0").
     private static decimal? SumOrNull(List<decimal> values)
         => values.Count == 0 ? null : Math.Round(values.Sum(), 2);
+
+    // Promedio ignorando nulos; null si ningún elemento tenía dato. Se usa para dosis (ppm):
+    // al ser una concentración, acumularla (SumOrNull) da una cifra desproporcionada.
+    private static decimal? AverageOrNull(IEnumerable<decimal?> values)
+    {
+        var present = values.Where(v => v.HasValue).Select(v => v!.Value).ToList();
+        return present.Count == 0 ? null : Math.Round(present.Average(), 2);
+    }
+
+    // Promedio ignorando nulos; null si la lista está vacía.
+    private static decimal? AverageOrNull(List<decimal> values)
+        => values.Count == 0 ? null : Math.Round(values.Average(), 2);
 
     // Regla de tres: ejecutado / meta × 100. Null si no hay meta (o es 0) o no hay ejecutado.
     private static decimal? CompliancePercent(decimal? executed, decimal? target)

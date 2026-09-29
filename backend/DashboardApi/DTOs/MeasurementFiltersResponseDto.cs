@@ -45,8 +45,9 @@ public class MeasurementFiltersResponseDto
     // "periodicidad contractual" (baches/mes) de los meses del rango filtrado.
     public ContractualComplianceDto Periodicity { get; set; } = new();
 
-    // Suma de "Dosis real inyectada" (ppm) vs la meta contractual "Dosis oferta económica"
-    // (ppm/mes × nº de meses con operación diaria en el rango).
+    // Promedio de "Dosis real inyectada" (ppm) vs el promedio de la meta contractual "Dosis
+    // oferta económica" de los meses con operación diaria en el rango. Se promedia, no se
+    // suma: la dosis es una concentración (ppm), no una cantidad acumulable.
     public ContractualComplianceDto Dose { get; set; } = new();
 
     // "Volumen real" acumulado vs la suma de "galones estimados mensuales" de los
@@ -177,9 +178,10 @@ public class DoseDto
     // presente en el rango filtrado (no es un porcentaje pese al nombre del campo).
     public decimal? GlobalCompliancePercent { get; set; }
 
-    // Brecha de dosis contra línea base: Σ meta "Línea base" (ppm, meses con operación diaria)
-    // - Σ dosis real inyectada. Positivo = falta ejecutar para alcanzar la línea base;
-    // negativo = ya se superó.
+    // Brecha de dosis contra línea base: promedio de meta "Línea base" (ppm, meses con operación
+    // diaria) - promedio de dosis real inyectada. Se promedia (no se suma): la dosis es una
+    // concentración (ppm), no una cantidad, y acumularla da una cifra desproporcionada.
+    // Positivo = falta ejecutar para alcanzar la línea base; negativo = ya se superó.
     public decimal? TargetDose { get; set; }
 
     // Brecha de volumen contra línea base: Σ meta "Línea base" (galones, meses con operación
