@@ -85,7 +85,7 @@ public class BiocideControlService : IBiocideControlService
             })
             .ToListAsync(cancellationToken);
 
-        var physicalChemistryByMeasurementId = await physicalChemistryQuery
+        var physicalChemistryRows = await physicalChemistryQuery
             .Select(pc => new
             {
                 pc.MeasurementId,
@@ -97,7 +97,12 @@ public class BiocideControlService : IBiocideControlService
                 pc.calcium_mgL,
                 pc.BSW_percent
             })
-            .ToDictionaryAsync(pc => pc.MeasurementId, cancellationToken);
+            .ToListAsync(cancellationToken);
+
+        // Una medición puede tener varias filas de fisicoquímica; se usa la primera.
+        var physicalChemistryByMeasurementId = physicalChemistryRows
+            .GroupBy(pc => pc.MeasurementId)
+            .ToDictionary(g => g.Key, g => g.First());
 
         var rows = measurements
             .Select(m =>

@@ -86,7 +86,8 @@ public class ThpsReviewService : IThpsReviewService
         var summary = new ThpsReviewSummaryDto
         {
             ResidualMedian = Median(residualValues),
-            EffectiveDoseMedian = Median(effectiveDoseValues),
+            // Dosis (ppm) es una concentración: se reporta el promedio, no la mediana.
+            EffectiveDoseMedian = effectiveDoseValues.Count == 0 ? null : Math.Round(effectiveDoseValues.Average(), 2),
             RetentionMedian = Median(retentionValues),
             CalculatedFwvMedian = Median(calculatedFwvValues),
             EventsWithRealDoseCount = eventsWithRealDoseCount,

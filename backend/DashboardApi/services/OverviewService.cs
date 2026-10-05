@@ -147,10 +147,8 @@ public class OverviewService : IOverviewService
         decimal? doseTargetBaseline = AverageOrNull(MatchedMonthlyValues(operationMonths, baselinePeriods, p => p.Dose));
         decimal? volumeTargetBaseline = SumOrNull(MatchedMonthlyValues(operationMonths, baselinePeriods, p => p.Gallons));
 
-        // TargetDose/TargetVolumen no son la meta cruda: son la brecha entre lo pactado en línea
-        // base y lo realmente ejecutado. TargetDose usa promedios (ppm no se suma); TargetVolumen
-        // usa sumas (Σ meta línea base - Σ ejecutado real).
-        decimal? doseGapBaseline = Gap(doseTargetBaseline, doseExecuted);
+        // TargetDose es el promedio de la dosis de línea base (ppm es una concentración: no se
+        // resta contra lo ejecutado). TargetVolumen sí es la brecha: Σ meta línea base - Σ ejecutado real.
         decimal? volumeGapBaseline = Gap(volumeTargetBaseline, volumeExecuted);
 
         // Aguas libres: media mensual de FWV reportada y FWV calculada, y su desviación (reportada - calculada).
@@ -218,7 +216,7 @@ public class OverviewService : IOverviewService
             : new DoseDto
             {
                 GlobalCompliancePercent = doseGlobalMeasurementCount,
-                TargetDose = doseGapBaseline,
+                TargetDose = doseTargetBaseline,
                 TargetVolumen = volumeGapBaseline,
                 AccumulatedActualVolume = accumulatedActualVolume,
                 Months = doseMonths
