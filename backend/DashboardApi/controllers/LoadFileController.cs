@@ -231,10 +231,10 @@ namespace DashboardApi.Controllers
 
                     var tankCode = fila.GetValueOrDefault("Tanque") ?? string.Empty;
 
-                    var origen = fila.GetValueOrDefault("origen");
+                    var origen = fila.GetValueOrDefault("Origen");
                     var nombreCompania = string.IsNullOrWhiteSpace(origen) ? "Sin origen" : origen.Trim();
 
-                    var validDate = DateTime.TryParse(fila.GetValueOrDefault("Fecha"), CulturaDatos, DateTimeStyles.None, out var fecha);
+                    var validDate = DateTime.TryParse(fila.GetValueOrDefault("Fecha_Análisis"), CulturaDatos, DateTimeStyles.None, out var fecha);
                     if (validDate)
                     {
                         years.Add(fecha.Year);
@@ -277,65 +277,69 @@ namespace DashboardApi.Controllers
                             CompanyId = companyId,
                             TankId = tankId,
                             Date = fecha,
-                            Injection_date = Fec("Fecha inyección"),
-                            Last_Biocida_Injection = Dec("ultima inyeccion biocida"),
-                            Scheduled_Dose = Dec("Dosis programada"),
-                            Actual_Injected_Dose = Dec("Dosis real inyectada"),
-                            Programmed_volume = Dec("Volumen programado"),
-                            Real_Volume = Dec("Volumen real"),
-                            GSV_bls = Dec("gsv(bls)"),
-                            API = Dec("API"),
-                            Estimated_FWV = Dec("FWV estimada"),
-                            Reported_FWV = Dec("FWV reportada"),
-                            Calculated_FWV = Dec("FWV calculada"),
-                            Increased_FWV = Dec("FWV incrementada"),
+                            Station = Str("Estacion").Trim(),
+                            Injection_date = Fec("Fecha_Inyección"),
+                            Last_Biocida_Injection = Dec("Última inyección Biocida (ppm)"),
+                            Scheduled_Dose = Dec("Dosis Programada (ppm)"),
+                            Actual_Injected_Dose = Dec("Dosis Real Inyectada (ppm)"),
+                            Programmed_volume = Dec("Volumen Programado (Gls)"),
+                            Real_Volume = Dec("Volumen Real Inyectado (Gls)"),
+                            GSV_bls = Dec("GSV (bls)"),
+                            API = Dec("API a 60°"),
+                            Estimated_FWV = Dec("FWV Estimado (bls)"),
+                            Reported_FWV = Dec("FWV Reportado (bls)"),
+                            Calculated_FWV = Dec("FWV Calculado (bls)"),
+                            Increased_FWV = Dec("FWV Incrementada"),
                         };
                     }
                     else
                     {
                         // Otra fila de la misma fecha: completar solo los campos que aún estén vacíos.
-                        operation.Injection_date ??= Fec("Fecha inyección");
-                        operation.Last_Biocida_Injection ??= Dec("ultima inyeccion biocida");
-                        operation.Scheduled_Dose ??= Dec("Dosis programada");
-                        operation.Actual_Injected_Dose ??= Dec("Dosis real inyectada");
-                        operation.Programmed_volume ??= Dec("Volumen programado");
-                        operation.Real_Volume ??= Dec("Volumen real");
-                        operation.GSV_bls ??= Dec("gsv(bls)");
-                        operation.API ??= Dec("API");
-                        operation.Estimated_FWV ??= Dec("FWV estimada");
-                        operation.Reported_FWV ??= Dec("FWV reportada");
-                        operation.Calculated_FWV ??= Dec("FWV calculada");
-                        operation.Increased_FWV ??= Dec("FWV incrementada");
+                        if (string.IsNullOrEmpty(operation.Station)) operation.Station = Str("Estacion").Trim();
+                        operation.Injection_date ??= Fec("Fecha_Inyección");
+                        operation.Last_Biocida_Injection ??= Dec("Última inyección Biocida (ppm)");
+                        operation.Scheduled_Dose ??= Dec("Dosis Programada (ppm)");
+                        operation.Actual_Injected_Dose ??= Dec("Dosis Real Inyectada (ppm)");
+                        operation.Programmed_volume ??= Dec("Volumen Programado (Gls)");
+                        operation.Real_Volume ??= Dec("Volumen Real Inyectado (Gls)");
+                        operation.GSV_bls ??= Dec("GSV (bls)");
+                        operation.API ??= Dec("API a 60°");
+                        operation.Estimated_FWV ??= Dec("FWV Estimado (bls)");
+                        operation.Reported_FWV ??= Dec("FWV Reportado (bls)");
+                        operation.Calculated_FWV ??= Dec("FWV Calculado (bls)");
+                        operation.Increased_FWV ??= Dec("FWV Incrementada");
                     }
 
                     // ── Valores microbiológicos por punto de muestreo ─────────────
-                    var samplingPoint = Str("Punto Muestreo").Trim();
-                    var standardSampling = Str("Tipo_Muestreo_norm");
-                    var bsrPlanct = Dec("BSR_planct");
-                    var bpaPlanct = Dec("BPA_planct");
-                    var bhtPlanct = Dec("BHT_planct");
-                    var bantPlanct = Dec("BAnT_planct");
-                    var biocidaPercent = Dec("%biocida");
-                    var thpsPercent = Dec("THPS_%");
-                    var residualThps = Dec("Residual THPS");
+                    var samplingPoint = Str("Facilidad").Trim();
+                    var standardSampling = Str("Tipo_Muestreo");
+                    var bsrPlanct = Dec("BSR (bact/ml)");
+                    var bpaPlanct = Dec("BPA (bact/ml)");
+                    var bhtPlanct = Dec("BHT (bact/ml)");
+                    var bantPlanct = Dec("BAnT (bact/ml)");
+                    var biocidaPercent = Dec("Residual Biocida (%)");
+                    var thpsPercent = Dec("Residual THPS (%)");
+                    var residualThps = Dec("Residual THPS (ppm)");
 
                     var physicalChemistry = new PhysicalChemistry
                     {
-                        Temperature_C = Dec("Temperatura [°C]"),
-                        H2S_mgL = Dec("H2S [mg/L]"),
+                        Temperature_C = Dec("Temperatura (°C)"),
+                        H2S_mgL = Dec("Sulfuros (mg/L)"),
                         pH = Dec("pH"),
-                        Conductivity_uScm = Dec("Conductividad [µS/cm]"),
-                        Alkalinity_mgL = Dec("Alcalinidad [mg/L (CaCO3)]"),
-                        calcium_mgL = Dec("Calcio [mg/L]"),
+                        Conductivity_uScm = Dec("Conductividad (µS/cm)"),
+                        Alkalinity_mgL = Dec("Alcalinidad (CaCO3)"),
+                        calcium_mgL = Dec("Calcio Total (mg/L)"),
                         BSW_percent = Dec("BSW (%)"),
                         General_Corrosion_Rate_ppm = Dec("Vel_Corrosión_Generalizada"),
                         Maximum_Sting_Speed_ppm = Dec("Vel_Picadura_Máxima"),
+                        electrochemical_corrosion_rate = Dec("Vel_Corrosión_Electroquímica"),
                     };
 
                     var hasPhysicalChemistryData =
                         physicalChemistry.Temperature_C != null || physicalChemistry.H2S_mgL != null || physicalChemistry.pH != null ||
                         physicalChemistry.Conductivity_uScm != null || physicalChemistry.Alkalinity_mgL != null || physicalChemistry.calcium_mgL != null ||
-                        physicalChemistry.BSW_percent != null || physicalChemistry.General_Corrosion_Rate_ppm != null || physicalChemistry.Maximum_Sting_Speed_ppm != null;
+                        physicalChemistry.BSW_percent != null || physicalChemistry.General_Corrosion_Rate_ppm != null || physicalChemistry.Maximum_Sting_Speed_ppm != null ||
+                        physicalChemistry.electrochemical_corrosion_rate != null;
 
                     var hasMeasurementData =
                         samplingPoint.Length > 0 || standardSampling.Length > 0 ||
@@ -365,8 +369,8 @@ namespace DashboardApi.Controllers
                     if (validDate)
                     {
                         var periodo = DateOnly.FromDateTime(fecha);
-                        var (aguaContractualMin, aguaContractualMax) = ParsearRangoAgua(Str("Agua estimada contractual"));
-                        var capacidad = Dec("Capacidad nominal");
+                        var (aguaContractualMin, aguaContractualMax) = ParsearRangoAgua(Str("Agua Estimada Contractual (bls)"));
+                        var capacidad = Dec("Capacidad Nominal (KBbls)");
                         var fluidoRaw = Str("Tipo de Fluido").Trim();
                         var fluido = string.IsNullOrWhiteSpace(fluidoRaw) ? null : fluidoRaw;
 
@@ -401,15 +405,15 @@ namespace DashboardApi.Controllers
                         }
 
                         AcumularMeta(escContractualId, aguaContractualMin, aguaContractualMax,
-                            Dec("periodicidad contractual"), Dec("dosis oferta económica(ppm)"), Dec("galones estimados mensuales"));
+                            Dec("Periodicidad contractual (Baches/mes)"), Dec("Dosis Oferta Económica (ppm)"), Dec("Galones Estimados Mensuales"));
 
-                        var aguaLineaBase = Dec("Agua estimada linea base");
+                        var aguaLineaBase = Dec("Agua Estimada Línea Base (bls)");
                         AcumularMeta(escLineaBaseId, aguaLineaBase, aguaLineaBase,
-                            Dec("Periodicidad linea base"), Dec("dosis linea base"), Dec("galones estimados linea base"));
+                            Dec("Periodicidad Línea Base"), Dec("Dosis Línea Base"), Dec("Galones Estimados Línea Base"));
 
-                        var aguaActual = Dec("Agua estimada actual");
+                        var aguaActual = Dec("Agua Estimada Actual");
                         AcumularMeta(escActualId, aguaActual, aguaActual,
-                            null, Dec("dosis actual"), Dec("galones actuales"));
+                            null, Dec("Dosis Actual"), Dec("Galones actuales"));
                     }
 
                 }

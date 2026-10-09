@@ -126,19 +126,22 @@ public class AnalysisService : IAnalysisService
         };
     }
 
-    // Última categoría NACE: valor más reciente de PhysicalChemistry.Category_Nace
-    // (columna computada a partir de la velocidad de corrosión general).
+    // Última categoría NACE SP0775-23, calculada a partir de la velocidad de corrosión general más reciente.
     private async Task<NaceCategoryDto> CalculateNaceCategory(long tankId, int[] years, string tqCode)
     {
         var last = await QueryPhysicalChemistries(tankId, years)
-            .Where(pc => pc.Category_Nace != null)
+            .Where(pc => pc.General_Corrosion_Rate_ppm != null)
             .OrderByDescending(pc => pc.Measurement!.Operation!.Date)
-            .Select(pc => new { pc.Category_Nace, pc.Measurement!.Operation!.Date })
+            .Select(pc => new { Rate = pc.General_Corrosion_Rate_ppm!.Value, pc.Measurement!.Operation!.Date })
             .FirstOrDefaultAsync();
 
         return new NaceCategoryDto
         {
-            Category = last?.Category_Nace ?? "Sin datos",
+            Category = last == null ? "Sin datos"
+                : last.Rate < 0.025m ? "BAJA"
+                : last.Rate <= 0.12m ? "MODERADA"
+                : last.Rate <= 0.25m ? "ALTA"
+                : "SEVERA",
             TqCode = tqCode,
             LastDate = last?.Date
         };

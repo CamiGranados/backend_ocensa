@@ -335,3 +335,11 @@ D:\IA_OCENSA\backend_ocensa\backend\DashboardApi\_buildcheck\runtimes\win\lib\ne
 D:\IA_OCENSA\backend_ocensa\backend\DashboardApi\_buildcheck\runtimes\win\lib\net6.0\System.Runtime.Caching.dll
 D:\IA_OCENSA\backend_ocensa\backend\DashboardApi\_buildcheck\runtimes\win\lib\net6.0\System.Security.Cryptography.ProtectedData.dll
 D:\IA_OCENSA\backend_ocensa\backend\DashboardApi\_buildcheck\runtimes\win\lib\net6.0\System.Windows.Extensions.dll
+C:\Users\Integridad\AppData\Local\Temp\chk_build\appsettings.Development.json
+C:\Users\Integridad\AppData\Local\Temp\chk_build\appsettings.json
+C:\Users\Integridad\AppData\Local\Temp\chk_build\validacion-config.json
+C:\Users\Integridad\AppData\Local\Temp\chk_build\DashboardApi.exe
+C:\Users\Integridad\AppData\Local\Temp\chk_build\DashboardApi.deps.json
+C:\Users\Integridad\AppData\Local\Temp\chk_build\DashboardApi.runtimeconfig.json
+C:\Users\Integridad\AppData\Local\Temp\chk_build\DashboardApi.dll
+C:\Users\Integridad\AppData\Local\Temp\chk_build\DashboardApi.pdb

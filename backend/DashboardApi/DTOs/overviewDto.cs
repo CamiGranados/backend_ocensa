@@ -30,7 +30,7 @@ public class MicrobiologicalEventsDto
     public int TotalEventsWithData { get; set; }  // 1.187
 }
 
-// DTO: NACE Category (calculada en PhysicalChemistry.Category_Nace a partir de la velocidad de corrosión)
+// DTO: NACE Category (calculada a partir de la velocidad de corrosión general)
 public class NaceCategoryDto
 {
     public string Category { get; set; } = "Sin datos"; // "MODERADA"

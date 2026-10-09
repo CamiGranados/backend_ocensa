@@ -20,10 +20,7 @@ namespace DashboardApi.Models
         public decimal? BSW_percent { get; set; }
         public decimal? General_Corrosion_Rate_ppm { get; set; }
         public decimal? Maximum_Sting_Speed_ppm { get; set; }
-
-        // Categoría NACE SP0775-23, calculada por SQL Server a partir de General_Corrosion_Rate_ppm
-        // (columna computada PERSISTED; ver AppDbContext.OnModelCreating).
-        public string? Category_Nace { get; private set; }
+        public decimal? electrochemical_corrosion_rate { get; set; }
     }
 
 }

@@ -9,19 +9,23 @@ namespace DashboardApi.Services
             using var workbook = new XLWorkbook(archivoStream);
             var hoja = workbook.Worksheets.First(); // por ahora tomamos la primera hoja
 
+            // Formato de la plantilla: los encabezados están en la fila 2 y los datos desde la fila 3
+            // (la fila 1 es un título/banner).
+            const int FilaEncabezados = 2;
+
             // XLCellsUsedOptions.Contents ignora celdas que solo tienen formato aplicado
             // (columnas/filas enteras formateadas en Excel sin datos reales), que si no
             // se excluyen hacen que ClosedXML recorra rangos enormes y sea extremadamente lento.
-            var filaEncabezados = hoja.FirstRowUsed(XLCellsUsedOptions.Contents)
+            var ultimaColumna = hoja.LastColumnUsed(XLCellsUsedOptions.Contents)?.ColumnNumber()
                 ?? throw new InvalidOperationException("La hoja de Excel está vacía.");
-            var encabezados = filaEncabezados
-                .Cells()
+            var encabezados = hoja.Row(FilaEncabezados)
+                .Cells(1, ultimaColumna)
                 .Select(c => c.GetString().Trim())
                 .ToList();
 
             var filas = new List<Dictionary<string, string>>();
 
-            var filasDatos = hoja.RowsUsed(XLCellsUsedOptions.Contents).Skip(1); // saltamos la fila de encabezados
+            var filasDatos = hoja.RowsUsed(XLCellsUsedOptions.Contents).Where(f => f.RowNumber() > FilaEncabezados); // saltamos título y encabezados
 
             foreach (var fila in filasDatos)
             {

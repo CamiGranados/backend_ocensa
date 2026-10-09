@@ -140,11 +140,6 @@ namespace DashboardApi.Migrations
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
 
-                    b.Property<string>("Category_Nace")
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("nvarchar(max)")
-                        .HasComputedColumnSql("CASE WHEN [General_Corrosion_Rate_ppm] IS NULL THEN NULL WHEN [General_Corrosion_Rate_ppm] < 0.025 THEN 'BAJA' WHEN [General_Corrosion_Rate_ppm] <= 0.12 THEN 'MODERADA' WHEN [General_Corrosion_Rate_ppm] <= 0.25 THEN 'ALTA' ELSE 'SEVERA' END", true);
-
                     b.Property<decimal?>("Conductivity_uScm")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
@@ -169,6 +164,10 @@ namespace DashboardApi.Migrations
                         .HasColumnType("decimal(18,4)");
 
                     b.Property<decimal?>("calcium_mgL")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("electrochemical_corrosion_rate")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
 
@@ -268,6 +267,10 @@ namespace DashboardApi.Migrations
                     b.Property<decimal?>("Scheduled_Dose")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Station")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<long>("TankId")
                         .HasColumnType("bigint");

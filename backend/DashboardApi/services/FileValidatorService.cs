@@ -13,7 +13,7 @@ namespace DashboardApi.Services
 
         // Columna cuyos valores (antes_1, antes_dc, despues_do, seguimiento_2, ...) se
         // estandarizan a Prebache / Postbache / Seguimiento antes de guardarse en base de datos.
-        private const string ColumnaTipoMuestreo = "Tipo_Muestreo_norm";
+        private const string ColumnaTipoMuestreo = "Tipo_Muestreo";
 
         private readonly ConfigService _configService;
 
@@ -59,7 +59,7 @@ namespace DashboardApi.Services
             for (int i = 0; i < filas.Count; i++)
             {
                 var fila = filas[i];
-                int numeroFilaExcel = i + 2; // +2 porque la fila 1 es encabezado y Excel empieza en 1
+                int numeroFilaExcel = i + 3; // +3 porque la fila 1 es título, la 2 encabezados y los datos empiezan en la 3
 
                 NormalizarGuionesComoVacio(fila);
                 NormalizarNumericosInvalidos(fila, columnasConfig);
@@ -151,7 +151,7 @@ namespace DashboardApi.Services
             }
         }
 
-        // Tipo_Muestreo_norm llega con muchas variantes de un mismo concepto (antes, antes_1,
+        // Tipo_Muestreo llega con muchas variantes de un mismo concepto (antes, antes_1,
         // antes_dc, pre_do, despues, post_1, seguimiento_dc, no_disponible, ...). Se estandariza a
         // una de cuatro etiquetas para que las consultas de análisis (IAnalysisService,
         // ThpsReviewService) puedan filtrar por un valor único en vez de conocer todas las
@@ -188,7 +188,7 @@ namespace DashboardApi.Services
                 {
                     Fila = numeroFila,
                     Columna = ColumnaTipoMuestreo,
-                    Motivo = "Valor no reconocido en Tipo_Muestreo_norm: no contiene 'antes', 'pre', 'despues', 'post', 'seguimiento' ni 'no disponible'",
+                    Motivo = "Valor no reconocido en Tipo_Muestreo: no contiene 'antes', 'pre', 'despues', 'post', 'seguimiento' ni 'no disponible'",
                     ValorEncontrado = valorOriginal
                 };
             }

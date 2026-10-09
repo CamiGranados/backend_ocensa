@@ -70,18 +70,6 @@ namespace DashboardApi.Data
                 .Property(t => t.FluidType)
                 .HasMaxLength(200);
 
-            // Categoría NACE SP0775-23: columna computada y persistida por SQL Server
-            // a partir de General_Corrosion_Rate_ppm (no se calcula en C#).
-            modelBuilder.Entity<PhysicalChemistry>()
-                .Property(p => p.Category_Nace)
-                .HasComputedColumnSql(
-                    "CASE WHEN [General_Corrosion_Rate_ppm] IS NULL THEN NULL " +
-                    "WHEN [General_Corrosion_Rate_ppm] < 0.025 THEN 'BAJA' " +
-                    "WHEN [General_Corrosion_Rate_ppm] <= 0.12 THEN 'MODERADA' " +
-                    "WHEN [General_Corrosion_Rate_ppm] <= 0.25 THEN 'ALTA' " +
-                    "ELSE 'SEVERA' END",
-                    stored: true);
-
             // Relaciones explícitas con Restrict: borrar una empresa/tanque/escenario
             // no debe arrastrar sus metas (además evita rutas de cascada múltiples en SQL Server).
             modelBuilder.Entity<TankTargetPeriod>()

@@ -20,6 +20,9 @@ namespace DashboardApi.Models
 
         public DateTime Date { get; set; }
 
+        [MaxLength(100)]
+        public string? Station { get; set; }
+
         public DateTime? Injection_date { get; set; }
         public decimal? Last_Biocida_Injection { get; set; }
         public decimal? Scheduled_Dose { get; set; }
