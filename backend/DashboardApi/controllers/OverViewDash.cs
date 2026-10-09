@@ -45,6 +45,18 @@ public class TanksController : ControllerBase
         return Ok(companies);
     }
 
+    // GET: api/tanks/lastUpload
+    [HttpGet("lastUpload")]
+    public async Task<ActionResult> GetLastUpload()
+    {
+        var lastUploadedAt = await _context.Uploads
+            .OrderByDescending(u => u.UploadedAt)
+            .Select(u => (DateTime?)u.UploadedAt)
+            .FirstOrDefaultAsync();
+
+        return Ok(new { uploadedAt = lastUploadedAt });
+    }
+
     // GET: api/tanks/years
     [HttpGet("years")]
     public async Task<ActionResult<IEnumerable<int>>> GetYears()

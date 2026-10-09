@@ -138,9 +138,9 @@ public class AnalysisService : IAnalysisService
         return new NaceCategoryDto
         {
             Category = last == null ? "Sin datos"
-                : last.Rate < 0.025m ? "BAJA"
-                : last.Rate <= 0.12m ? "MODERADA"
-                : last.Rate <= 0.25m ? "ALTA"
+                : last.Rate < 2m ? "BAJA"
+                : last.Rate <= 8m ? "MODERADA"
+                : last.Rate <= 36m ? "ALTA"
                 : "SEVERA",
             TqCode = tqCode,
             LastDate = last?.Date
